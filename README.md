@@ -25,23 +25,26 @@ Clone the repository:
 
 bash
 Copy code
-git clone https://github.com/yourusername/yourrepository.git
+git clone https://github.com/ageorge224/Update-Script.git
 
 Navigate to the script directory:
 
 bash
 Copy code
 cd yourrepository
+
 Make the script executable:
 
 bash
 Copy code
 chmod +x local_update.sh
+
 Run the script:
 
 bash
 Copy code
 ./local_update.sh
+
 Script Workflow
 
 Logging:
