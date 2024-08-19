@@ -9,109 +9,99 @@ SUDO_ASKPASS_PATH="$HOME/sudo_askpass.sh"
 # Export SUDO_ASKPASS
 export SUDO_ASKPASS="$SUDO_ASKPASS_PATH"
 
-# Function to display messages in color
-function echo_colored() {
-  local color=$1
-  local message=$2
-  case $color in
-    red) echo -e "\e[31m$message\e[0m" | tee -a $LOG_FILE ;;
-    green) echo -e "\e[32m$message\e[0m" | tee -a $LOG_FILE ;;
-    yellow) echo -e "\e[33m$message\e[0m" | tee -a $LOG_FILE ;;
-    blue) echo -e "\e[34m$message\e[0m" | tee -a $LOG_FILE ;;
-    magenta) echo -e "\e[35m$message\e[0m" | tee -a $LOG_FILE ;;
-    cyan) echo -e "\e[36m$message\e[0m" | tee -a $LOG_FILE ;;
-    white) echo -e "\e[37m$message\e[0m" | tee -a $LOG_FILE ;;
-    *) echo "$message" | tee -a $LOG_FILE ;;
-  esac
+# Function to log messages with color and timestamps in logs
+log_message() {
+    local color=$1
+    local message=$2
+    local timestamp=$(date +"%Y-%m-%d %H:%M:%S")
+    case $color in
+        red) color_code="\e[31m";;
+        green) color_code="\e[32m";;
+        yellow) color_code="\e[33m";;
+        blue) color_code="\e[34m";;
+        magenta) color_code="\e[35m";;
+        cyan) color_code="\e[36m";;
+        white) color_code="";;
+        *) color_code="";;
+    esac
+    echo -e "${color_code}${message}\e[0m" | tee -a "$LOG_FILE"
 }
 
-function handle_error() {
-  echo_colored red "Error on line $1"
-  exit 1
+
+# Function to handle errors
+handle_error() {
+    log_message red "Error on line $1: $2"
+    exit 1
 }
 
-trap 'handle_error $LINENO' ERR
+# Trap errors and signals
+trap 'handle_error $LINENO "$BASH_COMMAND"' ERR
+trap 'log_message red "Script terminated prematurely"; exit 1' SIGINT SIGTERM
 
-# Ensure log file exists
-if [ ! -f $LOG_FILE ]; then
-  touch $LOG_FILE
+# Backup log file if it exists
+if [ -f "$LOG_FILE" ]; then
+    log_message yellow "Backing up existing log file..."
+    cp "$LOG_FILE" "$BACKUP_LOG_FILE"
 fi
-cp $LOG_FILE $BACKUP_LOG_FILE
-
-# Function to display a cascading rainbow effect
-function show_rainbow_progress() {
-  local message=$1
-  local colors=(31 32 33 34 35 36 37 91 92 93 94 95 96)
-  local color_index=0
-
-  while kill -0 $! 2>/dev/null; do
-    echo -ne "\e[${colors[color_index]}m$message\e[0m\r"
-    color_index=$(( (color_index + 1) % ${#colors[@]} ))
-    sleep 0.2
-  done
-  echo -e "\e[32m$message [Done]\e[0m"
-}
 
 # Function to get system identification
-function get_system_identification() {
-  echo -e "\n\e[36mSystem Identification:\e[0m"
-  echo -e "\e[36mHostname:\e[0m \e[32m$(hostname)\e[0m"
-  echo -e "\e[36mOperating System:\e[0m \e[32m$(lsb_release -d | cut -f2)\e[0m"
-  echo -e "\e[36mKernel Version:\e[0m \e[32m$(uname -r)\e[0m"
-  echo -e "\e[36mLog File Path:\e[0m \e[32m$LOG_FILE\e[0m"
-  echo -e "\e[36mLog File Size:\e[0m \e[32m$(du -h $LOG_FILE | cut -f1)\e[0m"
-  echo -e "\e[36mBackup Log File:\e[0m \e[32m$BACKUP_LOG_FILE\e[0m"
+get_system_identification() {
+    { 
+        echo -e "\n\e[36mSystem Identification:\e[0m"
+        echo -e "\n"
+        printf "\e[36m%-18s\e[0m \e[32m%s\e[0m\n" "Hostname:" "$(hostname)"
+        printf "\e[36m%-18s\e[0m \e[32m%s\e[0m\n" "Operating System:" "$(lsb_release -d | cut -f2)"
+        printf "\e[36m%-18s\e[0m \e[32m%s\e[0m\n" "Kernel Version:" "$(uname -r)"
+        printf "\e[36m%-18s\e[0m \e[32m%s\e[0m\n" "CPU Info:" "$(lscpu | grep 'Model name' | awk -F: '{print $2}' | xargs)"
+        printf "\e[36m%-18s\e[0m \e[32m%s\e[0m\n" "GPU Info:" "$(lspci | grep -i vga | awk -F: '{print $3}' | xargs)"
+        printf "\e[36m%-18s\e[0m \e[32m%s\e[0m\n" "Memory Info:" "$(free -h | grep 'Mem:' | awk '{print $2 " / " $3}')"
+        
+        echo -e "\e[36mDisk Info:\e[0m"
+        echo -e "  \e[36mDrives:\e[0m"
+        printf "  \e[36m%-20s %-20s %-10s\e[0m\n" "Device" "Model" "Size"
+        lsblk -dn -o NAME,MODEL,SIZE | while IFS= read -r line; do
+            name=$(echo "$line" | awk '{print $1}')
+            model=$(echo "$line" | awk '{print $2}')
+            size=$(echo "$line" | awk '{print $NF}')
+            printf "  \e[32m%-20s %-20s %-10s\e[0m\n" "$name" "$model" "$size"
+        done
+
+        echo -e "\n"
+    } || handle_error "get_system_identification" "$?"
 }
 
-echo_colored cyan "Remote System Identification:"
+# Run system identification
 get_system_identification
 
-echo_colored blue "\nUpdating remote package list..."
-sudo -A apt-get update 2>&1 | tee -a $LOG_FILE & show_rainbow_progress "Updating package list"
+# Function to perform remote update
+perform_remote_update() {
+    log_message blue "$(printf '\e[3mUpdating remote package list...\e[0m')"
+    sudo -A apt-get update 2>&1 | tee -a "$LOG_FILE"
 
-echo_colored blue "\nUpgrading remote packages..."
-sudo -A apt-get upgrade -y 2>&1 | tee -a $LOG_FILE & show_rainbow_progress "Upgrading packages"
+    log_message blue "$(printf '\e[3mUpgrading remote packages...\e[0m')"
+    sudo -A apt-get upgrade -y 2>&1 | tee -a "$LOG_FILE"
 
-echo_colored blue "\nPerforming remote distribution upgrade..."
-sudo -A apt-get dist-upgrade -y 2>&1 | tee -a $LOG_FILE & show_rainbow_progress "Performing distribution upgrade"
+    log_message blue "$(printf '\e[3mPerforming remote distribution upgrade...\e[0m')"
+    sudo -A apt-get dist-upgrade -y 2>&1 | tee -a "$LOG_FILE"
 
-echo_colored blue "\nRemoving unnecessary remote packages..."
-sudo -A apt-get autoremove -y 2>&1 | tee -a $LOG_FILE & show_rainbow_progress "Removing unnecessary packages"
+    log_message blue "$(printf '\e[3mRemoving unnecessary remote packages...\e[0m')"
+    sudo -A apt-get autoremove -y 2>&1 | tee -a "$LOG_FILE"
 
-echo_colored blue "\nCleaning up remote system..."
-sudo -A apt-get clean 2>&1 | tee -a $LOG_FILE & show_rainbow_progress "Cleaning up"
+    log_message blue "$(printf '\e[3mCleaning up remote system...\e[0m')"
+    sudo -A apt-get clean 2>&1 | tee -a "$LOG_FILE"
 
-echo_colored blue "\nUpdating Pi-hole..."
-sudo -A pihole -up 2>&1 | tee -a $LOG_FILE & show_rainbow_progress "Updating Pi-hole"
+    log_message blue "$(printf '\e[3mUpdating Pi-hole...\e[0m')"
+    sudo -A pihole -up 2>&1 | tee -a "$LOG_FILE"
 
-echo_colored blue "\nUpdating Pi-hole gravity (less verbose)..."
-sudo -A pihole -g > /tmp/pihole_gravity.log 2>&1 & show_rainbow_progress "Updating Pi-hole gravity"
-if grep -q "FTL is listening" /tmp/pihole_gravity.log; then
-  echo_colored green "\nPi-hole gravity update completed successfully!"
-else
-  echo_colored red "\nPi-hole gravity update encountered an issue. Check /tmp/pihole_gravity.log for details."
-fi
+    log_message blue "$(printf '\e[3mUpdating Pi-hole gravity (less verbose)...\e[0m')"
+    sudo -A pihole -g > /tmp/pihole_gravity.log 2>&1
+    if grep -q "FTL is listening" /tmp/pihole_gravity.log; then
+        log_message green "Pi-hole gravity update completed successfully!"
+    else
+        log_message red "Pi-hole gravity update encountered an issue. Check /tmp/pihole_gravity.log for details."
+        echo -e "Pi-hole gravity update encountered an issue" >> "$SUMMARY_LOG"
+    fi
+}
 
-# Summarize the log
-echo_colored blue "\nSummarizing remote update log..."
-grep -E '^(Reading|Building|Calculating|Processing)' $LOG_FILE > $SUMMARY_LOG
-
-# Generate summary
-echo_colored blue "\nGenerating remote summary report..."
-echo -e "Summary of Remote Updates:\n" > $SUMMARY_LOG
-if grep -q "Reading package lists..." $LOG_FILE; then
-  echo -e "Update Applied: Yes" >> $SUMMARY_LOG
-else
-  echo -e "Update Applied: No" >> $SUMMARY_LOG
-fi
-
-echo -e "\nPi-hole Gravity Log Summary:" >> $SUMMARY_LOG
-if grep -q "FTL is listening" /tmp/pihole_gravity.log; then
-  echo -e "Pi-hole gravity update successful" >> $SUMMARY_LOG
-else
-  echo -e "Pi-hole gravity update had issues" >> $SUMMARY_LOG
-fi
-
-cat $SUMMARY_LOG
-
-echo_colored green "\nRemote Pi-hole update completed successfully!"
+# Perform remote update
+perform_remote_update
