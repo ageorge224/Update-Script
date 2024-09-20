@@ -2082,13 +2082,29 @@ check_run_log
 
 log_message cyan "     {{[[[**Completed, Local Script finished.**]]]}}"
 
+# Variables
+SCRIPT_NAME="/home/ageorge/Desktop/Update-Script/local_update.sh" # Updated path
+CHANGELOG_FILE="/home/ageorge/Documents/Backups/changelog.txt"
+
+# Check if changelog file and main script exist
+if [[ ! -f "$CHANGELOG_FILE" ]]; then
+    echo "Changelog file does not exist: $CHANGELOG_FILE"
+    exit 1
+fi
+
+if [[ ! -f "$SCRIPT_NAME" ]]; then
+    echo "Main script does not exist: $SCRIPT_NAME"
+    exit 1
+fi
+
+# Function to update changelog
 update_changelog() {
     local changelog_file="$1"
     local main_script="$2"
-    local version="$3"
+    local current_version="$3" # Use current version as parameter
 
     # Check if changelog file, main script, and version are provided
-    if [[ -z "$changelog_file" || -z "$main_script" || -z "$version" ]]; then
+    if [[ -z "$changelog_file" || -z "$main_script" || -z "$current_version" ]]; then
         handle_error "update_changelog" "Changelog file, main script, or version is missing"
         return 1
     fi
@@ -2105,7 +2121,13 @@ update_changelog() {
         echo
         log_message red "Changes detected in the main script. Please enter the new version and changes."
 
-        read -rp "Enter new version: " NEW_VERSION
+        # Show the current version and prompt for the new version
+        echo "Current version: $current_version"
+        read -rp "Enter new version (or press Enter to keep current version): " NEW_VERSION
+
+        # If no new version is entered, keep the current version
+        NEW_VERSION=${NEW_VERSION:-$current_version}
+
         read -rp "Enter changelog details: " CHANGE_DETAILS
 
         # Append the new version and changelog details to the changelog
@@ -2120,14 +2142,14 @@ update_changelog() {
             handle_error "update_changelog" "Failed to update changelog"
             return 1
         fi
-    elif [[ "$version" != "$LAST_LOGGED_VERSION" ]]; then
+    elif [[ "$current_version" != "$LAST_LOGGED_VERSION" ]]; then
         echo
-        log_message blue "Updating changelog for version $version..."
+        log_message blue "Updating changelog for version $current_version..."
         echo
 
         # Append the new version and a default log message
         if ! {
-            echo "[$(date +"%Y-%m-%d %H:%M:%S")] Script version $version" >>"$changelog_file"
+            echo "[$(date +"%Y-%m-%d %H:%M:%S")] Script version $current_version" >>"$changelog_file"
             echo "- Log Scanning updated." >>"$changelog_file"
         }; then
             handle_error "update_changelog" "Failed to update changelog"
@@ -2135,13 +2157,13 @@ update_changelog() {
         fi
     else
         echo
-        log_message blue "Version $version is already logged. No changes made to changelog."
+        log_message blue "Version $current_version is already logged. No changes made to changelog."
         echo
     fi
 }
 
-# Usage
-update_changelog "$CHANGELOG_FILE" "$MAIN_SCRIPT" "$VERSION"
+# Call the function with the existing VERSION variable
+update_changelog "$CHANGELOG_FILE" "$SCRIPT_NAME" "$VERSION"
 
 # Source the log functions
 source /home/ageorge/Desktop/log_functions.sh
