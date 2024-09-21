@@ -28,7 +28,7 @@ trap 'handle_error "$BASH_COMMAND" "$?"' ERR
 trap 'echo "Script terminated prematurely" >> "$RUN_LOG"; exit 1' SIGINT SIGTERM
 
 # Variables
-VERSION="1.2.51"
+VERSION="1.2.60"
 SCRIPT_NAME="local_update.sh"
 REMOTE_USER="ageorge"
 REMOTE_HOST="192.168.1.248"
@@ -480,78 +480,78 @@ verify_file_path "$REMOTE_SCRIPT_LOCAL3" "create"
 verify_file_path "$BACKUP_REMOTE_LOG2" "create"
 verify_file_path "$BACKUP_REMOTE_LOG3" "create"
 
-# Function to validate variables
+# Function to validate variables and create remote locations
 validate_variables() {
+    local remote_hosts=("$REMOTE_HOST" "$REMOTE_HOST2" "$REMOTE_HOST3")
+    local remote_scripts=("$REMOTE_SCRIPT_REMOTE" "$REMOTE_SCRIPT_REMOTE2" "$REMOTE_SCRIPT_REMOTE3")
 
-    # Additional checks for remote paths
-    # REMOTE_HOST
-    ssh "$REMOTE_USER@$REMOTE_HOST" "test -f $REMOTE_LOG && test -w $REMOTE_LOG" || {
-        log_message red "Error: REMOTE_LOG does not exist or is not writable"
-        exit 1
-    }
+    for i in "${!remote_hosts[@]}"; do
+        local host="${remote_hosts[$i]}"
+        local script="${remote_scripts[$i]}"
 
-    ssh "$REMOTE_USER@$REMOTE_HOST" "test -w $(dirname $REMOTE_LOG)" || {
-        log_message red "Error: Cannot write to remote directory for REMOTE_LOG"
-        exit 1
-    }
+        # Create remote script and set permissions
+        ssh "$REMOTE_USER@$host" "
+            if [[ ! -f $script ]]; then
+                touch $script && chmod 755 $script || {
+                    echo 'Error: Failed to create or set permissions for $script'
+                    exit 1
+                }
+            fi
+        " || {
+            log_message red "Error: Failed to create or set permissions for $script on $host"
+            exit 1
+        }
 
-    ssh "$REMOTE_USER@$REMOTE_HOST" "test -d $(dirname $REMOTE_SCRIPT_REMOTE)" || {
-        log_message red "Error: Remote directory for REMOTE_SCRIPT_REMOTE does not exist"
-        exit 1
-    }
+        # Check if REMOTE_LOG exists and is writable, create if not
+        ssh "$REMOTE_USER@$host" "
+            if [[ ! -f $REMOTE_LOG ]]; then
+                touch $REMOTE_LOG && chmod 644 $REMOTE_LOG || {
+                    echo 'Error: Failed to create or set permissions for $REMOTE_LOG'
+                    exit 1
+                }
+            elif [[ ! -w $REMOTE_LOG ]]; then
+                chmod 644 $REMOTE_LOG || {
+                    echo 'Error: Failed to set write permissions for $REMOTE_LOG'
+                    exit 1
+                }
+            fi
+        " || {
+            log_message red "Error: Failed to create or set permissions for REMOTE_LOG on $host"
+            exit 1
+        }
 
-    ssh "$REMOTE_USER@$REMOTE_HOST" "test -f $REMOTE_SCRIPT_REMOTE && test -w $REMOTE_SCRIPT_REMOTE" || {
-        log_message red "Error: REMOTE_SCRIPT_REMOTE does not exist or is not writable"
-        exit 1
-    }
+        # Ensure the directory for REMOTE_LOG is writable
+        ssh "$REMOTE_USER@$host" "
+            if [[ ! -w $(dirname $REMOTE_LOG) ]]; then
+                chmod 755 $(dirname $REMOTE_LOG) || {
+                    echo 'Error: Failed to set write permissions for REMOTE_LOG directory'
+                    exit 1
+                }
+            fi
+        " || {
+            log_message red "Error: Failed to set permissions for REMOTE_LOG directory on $host"
+            exit 1
+        }
 
-    # REMOTE_HOST2
-    ssh "$REMOTE_USER@$REMOTE_HOST2" "test -f $REMOTE_LOG && test -w $REMOTE_LOG" || {
-        log_message red "Error: REMOTE_LOG does not exist or is not writable"
-        exit 1
-    }
-
-    ssh "$REMOTE_USER@$REMOTE_HOST2" "test -w $(dirname $REMOTE_LOG)" || {
-        log_message red "Error: Cannot write to remote directory for REMOTE_LOG"
-        exit 1
-    }
-
-    ssh "$REMOTE_USER@$REMOTE_HOST2" "test -d $(dirname $REMOTE_SCRIPT_REMOTE2)" || {
-        log_message red "Error: Remote directory for REMOTE_SCRIPT_REMOTE2 does not exist"
-        exit 1
-    }
-
-    ssh "$REMOTE_USER@$REMOTE_HOST2" "test -f $REMOTE_SCRIPT_REMOTE2 && test -w $REMOTE_SCRIPT_REMOTE2" || {
-        log_message red "Error: REMOTE_SCRIPT_REMOTE2 does not exist or is not writable"
-        exit 1
-    }
-
-    # REMOTE_HOST3
-    ssh "$REMOTE_USER@$REMOTE_HOST3" "test -f $REMOTE_LOG && test -w $REMOTE_LOG" || {
-        log_message red "Error: REMOTE_LOG does not exist or is not writable"
-        exit 1
-    }
-
-    ssh "$REMOTE_USER@$REMOTE_HOST3" "test -w $(dirname $REMOTE_LOG)" || {
-        log_message red "Error: Cannot write to remote directory for REMOTE_LOG"
-        exit 1
-    }
-
-    ssh "$REMOTE_USER@$REMOTE_HOST3" "test -d $(dirname $REMOTE_SCRIPT_REMOTE3)" || {
-        log_message red "Error: Remote directory for REMOTE_SCRIPT_REMOTE3 does not exist"
-        exit 1
-    }
-
-    ssh "$REMOTE_USER@$REMOTE_HOST3" "test -f $REMOTE_SCRIPT_REMOTE3 && test -w $REMOTE_SCRIPT_REMOTE3" || {
-        log_message red "Error: REMOTE_SCRIPT_REMOTE3 does not exist or is not writable"
-        exit 1
-    }
+        # Ensure the directory for remote script exists and is writable
+        ssh "$REMOTE_USER@$host" "
+            if [[ ! -d $(dirname $script) ]]; then
+                mkdir -p $(dirname $script) && chmod 755 $(dirname $script) || {
+                    echo 'Error: Failed to create or set permissions for remote script directory'
+                    exit 1
+                }
+            elif [[ ! -w $(dirname $script) ]]; then
+                chmod 755 $(dirname $script) || {
+                    echo 'Error: Failed to set write permissions for remote script directory'
+                    exit 1
+                }
+            fi
+        " || {
+            log_message red "Error: Failed to create or set permissions for remote script directory on $host"
+            exit 1
+        }
+    done
 }
-
-if [[ ! -d "$BACKUP_DIR2" ]]; then
-    log_message red "Error: BACKUP_DIR2 does not exist"
-    exit 1
-fi
 
 # Call validate_variables after setting up all paths
 validate_variables
@@ -2021,10 +2021,10 @@ verify_checksum() {
 }
 
 #Verify the checksum
-echo
-log_message blue "$(printf '\e[3mVerifying script checksums on remote servers...\e[0m')"
-echo
-verify_checksum
+#echo
+#log_message blue "$(printf '\e[3mVerifying script checksums on remote servers...\e[0m')"
+#echo
+#verify_checksum
 
 # Function to execute remote script and retrieve log
 execute_remote_script() {
@@ -2104,7 +2104,7 @@ fi
 update_changelog() {
     local changelog_file="$1"
     local main_script="$2"
-    local current_version="$3" # Use current version as parameter
+    local current_version="$3"
 
     # Check if changelog file, main script, and version are provided
     if [[ -z "$changelog_file" || -z "$main_script" || -z "$current_version" ]]; then
@@ -2112,7 +2112,6 @@ update_changelog() {
         return 1
     fi
 
-    # Log message and check the last logged version
     echo
     log_message blue "Checking for new version..."
     echo
@@ -2122,22 +2121,29 @@ update_changelog() {
     # Check for changes in the main script
     if ! git diff --quiet "$main_script"; then
         echo
-        log_message red "Changes detected in the main script. Please enter the new version and changes."
-
-        # Show the current version and prompt for the new version
-        echo "Current version: $current_version"
-        read -rp "Enter new version (or press Enter to keep current version): " NEW_VERSION
+        log_message yellow "===== Changes detected in the main script ====="
+        echo
+        log_message cyan "Current version: $current_version"
+        echo
+        log_message green "Enter new version (or press Enter to keep current version):"
+        read -rp "$(tput setaf 2)> $(tput sgr0)" NEW_VERSION
 
         # If no new version is entered, keep the current version
         NEW_VERSION=${NEW_VERSION:-$current_version}
 
-        read -rp "Enter changelog details: " CHANGE_DETAILS
+        echo
+        log_message green "Enter changelog details:"
+        read -rp "$(tput setaf 2)> $(tput sgr0)" CHANGE_DETAILS
 
-        # Append the new version and changelog details to the changelog
+        # Update the VERSION variable in the main script
+        if [[ "$NEW_VERSION" != "$current_version" ]]; then
+            sed -i "s/VERSION=\"$current_version\"/VERSION=\"$NEW_VERSION\"/" "$main_script"
+            log_message blue "Updated script version to $NEW_VERSION"
+        fi
+
         echo
         log_message blue "Updating changelog..."
         echo
-
         if ! {
             echo "[$(date +"%Y-%m-%d %H:%M:%S")] Script version $NEW_VERSION" >>"$changelog_file"
             echo "- $CHANGE_DETAILS" >>"$changelog_file"
@@ -2145,11 +2151,11 @@ update_changelog() {
             handle_error "update_changelog" "Failed to update changelog"
             return 1
         fi
+        log_message green "Changelog updated successfully!"
     elif [[ "$current_version" != "$LAST_LOGGED_VERSION" ]]; then
         echo
         log_message blue "Updating changelog for version $current_version..."
         echo
-
         # Append the new version and a default log message
         if ! {
             echo "[$(date +"%Y-%m-%d %H:%M:%S")] Script version $current_version" >>"$changelog_file"
@@ -2158,6 +2164,7 @@ update_changelog() {
             handle_error "update_changelog" "Failed to update changelog"
             return 1
         fi
+        log_message green "Changelog updated successfully!"
     else
         echo
         log_message blue "Version $current_version is already logged. No changes made to changelog."
