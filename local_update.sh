@@ -385,7 +385,7 @@ check_restart_required() {
     # Use a compound command to group the code and catch errors
     {
         if [ -f /var/run/reboot-required ]; then
-            log_message blue "\nRemote Machine needs restarting\n"
+            log_message red "\nRemote Machine needs restarting\n"
             if [ -f /var/run/reboot-required.pkgs ]; then
                 log_message blue "Packages requiring restart:"
                 log_message blue "\n$(cat /var/run/reboot-required.pkgs)\n"
@@ -820,7 +820,7 @@ check_restart_required() {
     # Use a compound command to group the code and catch errors
     {
         if [ -f /var/run/reboot-required ]; then
-            log_message blue "\nRemote Machine needs restarting\n"
+            log_message red "\nRemote Machine needs restarting\n"
             if [ -f /var/run/reboot-required.pkgs ]; then
                 log_message blue "Packages requiring restart:"
                 log_message blue "\n$(cat /var/run/reboot-required.pkgs)\n"
@@ -1157,7 +1157,7 @@ check_restart_required() {
     # Use a compound command to group the code and catch errors
     {
         if [ -f /var/run/reboot-required ]; then
-            log_message blue "\nRemote Machine needs restarting\n"
+            log_message red "\nRemote Machine needs restarting\n"
             if [ -f /var/run/reboot-required.pkgs ]; then
                 log_message blue "Packages requiring restart:"
                 log_message blue "\n$(cat /var/run/reboot-required.pkgs)\n"
@@ -1530,7 +1530,7 @@ check_restart_required() {
     # Use a compound command to group the code and catch errors
     {
         if [ -f /var/run/reboot-required ]; then
-            log_message blue "\nRemote Machine needs restarting\n"
+            log_message red "\nRemote Machine needs restarting\n"
             if [ -f /var/run/reboot-required.pkgs ]; then
                 log_message blue "Packages requiring restart:"
                 log_message blue "\n$(cat /var/run/reboot-required.pkgs)\n"
@@ -1575,13 +1575,13 @@ main() {
             log_message red "Errors were encountered during the script execution:"
             cat "$ERROR_LOG"
         else
-            log_message green "<----[No errors detected during the Remote script execution.]---->"
+            log_message green "<----[No errors detected during the Remote Pi-Hole script execution.]---->"
         fi
 
         if [[ "$DRY_RUN" == "true" ]]; then
             log_message yellow "DRY RUN completed. No changes were made."
         else
-            log_message cyan "         {{[[[**Completed, Remote Script finished.**]]]}}"
+            log_message cyan "         {{[[[**Completed, Pi-Hole finished.**]]]}}"
         fi
     else
         log_message red "Validation of remote environment failed. Aborting update process."
@@ -2418,7 +2418,7 @@ scan_and_classify_logs() {
     }
 
     # Define the maximum number of error lines to display
-    MAX_ERRORS=10
+    MAX_ERRORS=2
     error_count=0
     timestamp=$(date)
 
