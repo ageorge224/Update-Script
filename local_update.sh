@@ -1621,7 +1621,7 @@ copy_local_to_remote() {
         if ! ssh "$REMOTE_USER@$REMOTE_HOST" "chmod +x '$REMOTE_SCRIPT_REMOTE'"; then
             handle_error "copy_local_to_remote" "Failed to set execute permissions on remote script"
         fi
-        if ! ssh "$REMOTE_USER@$REMOTE_HOST" "md5sum '$REMOTE_SCRIPT_REMOTE'" >"${CHECKSUM_FILE}.$(basename "$REMOTE_SCRIPT_LOCAL").md5"; then
+        if ! ssh "$REMOTE_USER@$REMOTE_HOST" "md5sum '$REMOTE_SCRIPT_REMOTE'" >"${CHECKSUM_FILE}.$(basename "$REMOTE_SCRIPT_REMOTE")"; then
             handle_error "copy_local_to_remote" "Failed to generate checksum on remote host"
         fi
     fi
@@ -1639,7 +1639,7 @@ copy_local_to_remote2() {
         if ! ssh "$REMOTE_USER@$REMOTE_HOST2" "chmod +x '$REMOTE_SCRIPT_REMOTE2'"; then
             handle_error "copy_local_to_remote2" "Failed to set execute permissions on remote script"
         fi
-        if ! ssh "$REMOTE_USER@$REMOTE_HOST2" "md5sum '$REMOTE_SCRIPT_REMOTE2'" >"${CHECKSUM_FILE}.$(basename "$REMOTE_SCRIPT_LOCAL2").md5"; then
+        if ! ssh "$REMOTE_USER@$REMOTE_HOST2" "md5sum '$REMOTE_SCRIPT_REMOTE2'" >"${CHECKSUM_FILE}.$(basename "$REMOTE_SCRIPT_REMOTE2")"; then
             handle_error "copy_local_to_remote2" "Failed to generate checksum on remote host2"
         fi
     fi
@@ -1657,7 +1657,7 @@ copy_local_to_remote3() {
         if ! ssh "$REMOTE_USER@$REMOTE_HOST3" "chmod +x '$REMOTE_SCRIPT_REMOTE3'"; then
             handle_error "copy_local_to_remote3" "Failed to set execute permissions on remote script3"
         fi
-        if ! ssh "$REMOTE_USER@$REMOTE_HOST3" "md5sum '$REMOTE_SCRIPT_REMOTE3'" >"${CHECKSUM_FILE}.$(basename "$REMOTE_SCRIPT_LOCAL3").md5"; then
+        if ! ssh "$REMOTE_USER@$REMOTE_HOST3" "md5sum '$REMOTE_SCRIPT_REMOTE3'" >"${CHECKSUM_FILE}.$(basename "$REMOTE_SCRIPT_REMOTE3")"; then
             handle_error "copy_local_to_remote3" "Failed to generate checksum on remote host3"
         fi
     fi
@@ -1992,8 +1992,11 @@ log_message cyan "Remote script completed."
 # Function to verify checksum for multiple files
 verify_checksum() {
     local exit_code=0
-    local checksum_files=("${CHECKSUM_FILE}.$(basename "$REMOTE_SCRIPT_LOCAL").md5" "${CHECKSUM_FILE}.$(basename "$REMOTE_SCRIPT_LOCAL2").md5")
-
+    local checksum_files=(
+        "${CHECKSUM_FILE}.$(basename "$REMOTE_SCRIPT_REMOTE")"
+        "${CHECKSUM_FILE}.$(basename "$REMOTE_SCRIPT_REMOTE2")"
+        "${CHECKSUM_FILE}.$(basename "$REMOTE_SCRIPT_REMOTE3")"
+    )
     for checksum_file in "${checksum_files[@]}"; do
         if [ -f "$checksum_file" ]; then
             remote_checksum=$(awk '{print $1}' "$checksum_file")
@@ -2017,11 +2020,11 @@ verify_checksum() {
     fi
 }
 
-# Verify the checksum
-# echo
-# log_message blue "$(printf '\e[3mVerifying script checksums on remote servers...\e[0m')"
-# echo
-# verify_checksum
+#Verify the checksum
+echo
+log_message blue "$(printf '\e[3mVerifying script checksums on remote servers...\e[0m')"
+echo
+verify_checksum
 
 # Function to execute remote script and retrieve log
 execute_remote_script() {
