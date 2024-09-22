@@ -28,7 +28,7 @@ trap 'handle_error "$BASH_COMMAND" "$?"' ERR
 trap 'echo "Script terminated prematurely" >> "$RUN_LOG"; exit 1' SIGINT SIGTERM
 
 # Variables
-VERSION="1.2.60"
+VERSION="1.2.61"
 SCRIPT_NAME="local_update.sh"
 REMOTE_USER="ageorge"
 REMOTE_HOST="192.168.1.248"
@@ -805,7 +805,10 @@ perform_remote_update() {
         log_message blue "$(printf '\e[3m%s\e[0m' "$description")"
         echo
         if [[ "$DRY_RUN" != "true" ]]; then
-            if ! eval "$command" 2>&1 | tee -a "$LOG_FILE"; then
+            if eval "$command" 2>&1 | tee -a "$LOG_FILE"; then
+                log_message green "$description completed successfully!"
+            else
+                log_message red "Failed to $description"
                 handle_error "perform_remote_update" "Failed to $description"
             fi
         else
@@ -1142,7 +1145,10 @@ perform_remote_update() {
         log_message blue "$(printf '\e[3m%s\e[0m' "$description")"
         echo
         if [[ "$DRY_RUN" != "true" ]]; then
-            if ! eval "$command" 2>&1 | tee -a "$LOG_FILE"; then
+            if eval "$command" 2>&1 | tee -a "$LOG_FILE"; then
+                log_message green "$description completed successfully!"
+            else
+                log_message red "Failed to $description"
                 handle_error "perform_remote_update" "Failed to $description"
             fi
         else
@@ -1472,16 +1478,17 @@ perform_remote_update() {
         "Updating Pi-hole:sudo -A pihole -up"
         "Updating Pi-hole gravity:sudo -A pihole -g > /tmp/pihole_gravity.log 2>&1"
     )
-    
+
     # Verify pihole_gravity.log path
     verify_file_path "/tmp/pihole_gravity.log" "create" || return 1
-    
+
     for step in "${update_steps[@]}"; do
         IFS=':' read -r description command <<< "$step"
         echo
+
+        # Log the start of the update step in blue
         log_message blue "$(printf '\e[3m%s\e[0m' "$description")"
-        echo
-        
+
         if [[ "$DRY_RUN" != "true" ]]; then
             if [[ "$description" == "Updating Pi-hole gravity" ]]; then
                 # Start the command in the background
@@ -1496,16 +1503,15 @@ perform_remote_update() {
                     printf "\r[%c] Updating Pi-hole gravity..." "${spin:$i:1}"
                     sleep .1
                 done
-                printf "\r%s\n" "Pi-hole gravity update completed!"
-                
-                # Wait for the background process to finish
-                wait $pid
-                if [ $? -ne 0 ]; then
-                    handle_error "perform_remote_update" "Failed to $description"
-                fi
+              # Log the success of the update in green
+                log_message green "Pi-hole gravity update completed successfully!"
             else
+                # Execute the command and log the result
                 if ! eval "$command" 2>&1 | tee -a "$LOG_FILE"; then
                     handle_error "perform_remote_update" "Failed to $description"
+                else
+                    # Log the success of the update in green
+                    log_message green "$description completed successfully!"
                 fi
             fi
         else
@@ -1513,7 +1519,7 @@ perform_remote_update() {
         fi
     done
     
-    if [[ "$DRY_RUN" != "true" ]]; then
+     if [[ "$DRY_RUN" != "true" ]]; then
         if [[ -f /tmp/pihole_gravity.log ]] && grep -q "FTL is listening" /tmp/pihole_gravity.log; then
             log_message green "Pi-hole gravity update completed successfully!"
             echo
