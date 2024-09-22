@@ -11,4 +11,4 @@ git commit -m "$commit_message"
 
 # Push the changes to the remote repository
 (replace "origin" with your remote name)
-git push ageorge
+git push origin master
