@@ -28,7 +28,7 @@ trap 'handle_error "$BASH_COMMAND" "$?"' ERR
 trap 'echo "Script terminated prematurely" >> "$RUN_LOG"; exit 1' SIGINT SIGTERM
 
 # Variables
-VERSION="1.2.61"
+VERSION="1.2.64"
 SCRIPT_NAME="local_update.sh"
 REMOTE_USER="ageorge"
 REMOTE_HOST="192.168.1.248"
@@ -137,8 +137,8 @@ print_header() {
     local version=$VERSION
     local author="Anthony George"
     local description="A script for performing local and remote system updates with backup functionality"
-    local date=$(date +"%Y-%m-%d")
-
+    local date
+    date=$(date +"%Y-%m-%d")
     calc_max_width() {
         local max_width=80
         local temp_width
@@ -165,11 +165,12 @@ print_header() {
         echo $((max_width + 4))
     }
 
-    local width=$(calc_max_width)
+    local width
+    width=$(calc_max_width)
     local content_width=$((width - 2)) # Subtract 2 for the left and right borders
 
     print_line() {
-        printf "\e[36m%s\e[0m\n" "$(printf "%${width}s" | tr ' ' "$1")"
+        printf "\e[36m%s\e[0m\n" "$(printf "%${width}s" | tr ' ' '─')" # Directly use the ─ character
     }
 
     print_content_line() {
@@ -194,14 +195,14 @@ print_header() {
         [[ -n $line ]] && print_content_line "$(printf "%-${#prefix}s%s" "$prefix" "$line")"
     }
 
-    echo -e "\e[36m╭$(printf "%${width}s" | tr ' ' '┅')╮\e[0m"
+    echo -e "\e[36m╭$(printf "%${width}s" | tr ' ' '─')╮\e[0m" # Use ─ directly here
     printf "\e[36m│\e[1;33m %-${content_width}s \e[36m│\e[0m\n" "$script_name v$version"
-    print_line "┅"
+    print_line
     print_content_line "$(printf "%-15s\e[32m%s" "Date:" "$date")"
     print_content_line "$(printf "%-15s\e[32m%s" "Author:" "$author")"
-    print_line "┅"
+    print_line
     print_wrapped_text "$description" "Description: "
-    print_line "┅"
+    print_line
     print_content_line "\e[1mConfiguration Variables:"
     local vars=("REMOTE_USER"
         "REMOTE_HOST"
@@ -214,7 +215,7 @@ print_header() {
         value="${!var}"
         print_content_line "$(printf "%-20s \e[32m%s" "$var:" "$value")"
     done
-    echo -e "\e[36m╰$(printf "%${width}s" | tr ' ' '┅')╯\e[0m"
+    echo -e "\e[36m╰$(printf "%${width}s" | tr ' ' '─')╯\e[0m" # Use ─ directly here
     echo
 }
 
@@ -488,7 +489,7 @@ validate_variables() {
     for i in "${!remote_hosts[@]}"; do
         local host="${remote_hosts[$i]}"
         local script="${remote_scripts[$i]}"
-
+        # shellcheck disable=SC2029
         # Create remote script and set permissions
         ssh "$REMOTE_USER@$host" "
             if [[ ! -f $script ]]; then
@@ -501,7 +502,7 @@ validate_variables() {
             log_message red "Error: Failed to create or set permissions for $script on $host"
             exit 1
         }
-
+        # shellcheck disable=SC2029
         # Check if REMOTE_LOG exists and is writable, create if not
         ssh "$REMOTE_USER@$host" "
             if [[ ! -f $REMOTE_LOG ]]; then
@@ -519,7 +520,7 @@ validate_variables() {
             log_message red "Error: Failed to create or set permissions for REMOTE_LOG on $host"
             exit 1
         }
-
+        # shellcheck disable=SC2029
         # Ensure the directory for REMOTE_LOG is writable
         ssh "$REMOTE_USER@$host" "
             if [[ ! -w $(dirname $REMOTE_LOG) ]]; then
@@ -532,7 +533,8 @@ validate_variables() {
             log_message red "Error: Failed to set permissions for REMOTE_LOG directory on $host"
             exit 1
         }
-
+        # shellcheck disable=SC2086
+        # shellcheck disable=SC2029
         # Ensure the directory for remote script exists and is writable
         ssh "$REMOTE_USER@$host" "
             if [[ ! -d $(dirname $script) ]]; then
@@ -1617,6 +1619,7 @@ create_remote_script
 create_remote_script2
 create_remote_script3
 
+# shellcheck disable=SC2029
 # Function to copy script to remote and set permissions
 copy_local_to_remote() {
     if check_dry_run_mode; then
@@ -1636,6 +1639,7 @@ copy_local_to_remote() {
     fi
 }
 
+# shellcheck disable=SC2029
 copy_local_to_remote2() {
     if check_dry_run_mode; then
         echo "scp $REMOTE_SCRIPT_LOCAL2 $REMOTE_USER@$REMOTE_HOST2:$REMOTE_SCRIPT_REMOTE2"
@@ -1654,6 +1658,7 @@ copy_local_to_remote2() {
     fi
 }
 
+# shellcheck disable=SC2029
 copy_local_to_remote3() {
     if check_dry_run_mode; then
         echo "scp $REMOTE_SCRIPT_LOCAL3 $REMOTE_USER@$REMOTE_HOST3:$REMOTE_SCRIPT_REMOTE3"
@@ -1677,6 +1682,7 @@ copy_local_to_remote
 copy_local_to_remote2
 copy_local_to_remote3
 
+# shellcheck disable=SC2029
 # Log Information Function
 get_log_info2() {
     {
@@ -2041,6 +2047,7 @@ verify_checksum() {
 #echo
 #verify_checksum
 
+# shellcheck disable=SC2029
 # Function to execute remote script and retrieve log
 execute_remote_script() {
     local remote_user="$1"
