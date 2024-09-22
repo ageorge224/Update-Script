@@ -194,14 +194,14 @@ print_header() {
         [[ -n $line ]] && print_content_line "$(printf "%-${#prefix}s%s" "$prefix" "$line")"
     }
 
-    echo -e "\e[36m╭$(printf "%${width}s" | tr ' ' '─')╮\e[0m"
+    echo -e "\e[36m╭$(printf "%${width}s" | tr ' ' '┅')╮\e[0m"
     printf "\e[36m│\e[1;33m %-${content_width}s \e[36m│\e[0m\n" "$script_name v$version"
-    print_line "─"
+    print_line "┅"
     print_content_line "$(printf "%-15s\e[32m%s" "Date:" "$date")"
     print_content_line "$(printf "%-15s\e[32m%s" "Author:" "$author")"
-    print_line "─"
+    print_line "┅"
     print_wrapped_text "$description" "Description: "
-    print_line "─"
+    print_line "┅"
     print_content_line "\e[1mConfiguration Variables:"
     local vars=("REMOTE_USER"
         "REMOTE_HOST"
@@ -214,7 +214,7 @@ print_header() {
         value="${!var}"
         print_content_line "$(printf "%-20s \e[32m%s" "$var:" "$value")"
     done
-    echo -e "\e[36m╰$(printf "%${width}s" | tr ' ' '─')╯\e[0m"
+    echo -e "\e[36m╰$(printf "%${width}s" | tr ' ' '┅')╯\e[0m"
     echo
 }
 
@@ -560,10 +560,11 @@ validate_variablesv2
 # Function to make Remote_Script3
 create_remote_script3() {
     local available_space
-    available_space=$(df -P "$(dirname "$REMOTE_SCRIPT_LOCAL3")" | awk 'NR==2 {print $4}')
+    available_space=$(df -P "$(dirname "$REMOTE_SCRIPT_LOCAL2")" | awk 'NR==2 {print $4}')
 
-    if [[ $? -ne 0 ]]; then
-        echo "Error getting available space"
+    # Check if available space is below a threshold (e.g., 1024 MB)
+    if [[ $available_space -lt 1024 ]]; then
+        echo "Insufficient disk space for remote script. Required: 1GB"
         exit 1
     fi
 
@@ -903,8 +904,9 @@ create_remote_script2() {
     local available_space
     available_space=$(df -P "$(dirname "$REMOTE_SCRIPT_LOCAL2")" | awk 'NR==2 {print $4}')
 
-    if [[ $? -ne 0 ]]; then
-        echo "Error getting available space"
+    # Check if available space is below a threshold (e.g., 1024 MB)
+    if [[ $available_space -lt 1024 ]]; then
+        echo "Insufficient disk space for remote script. Required: 1GB"
         exit 1
     fi
 
@@ -1241,10 +1243,11 @@ EOF
 # Function to make Remote_Script
 create_remote_script() {
     local available_space
-    available_space=$(df -P "$(dirname "$REMOTE_SCRIPT_LOCAL")" | awk 'NR==2 {print $4}')
+    available_space=$(df -P "$(dirname "$REMOTE_SCRIPT_LOCAL2")" | awk 'NR==2 {print $4}')
 
-    if [[ $? -ne 0 ]]; then
-        echo "Error getting available space"
+    # Check if available space is below a threshold (e.g., 1024 MB)
+    if [[ $available_space -lt 1024 ]]; then
+        echo "Insufficient disk space for remote script. Required: 1GB"
         exit 1
     fi
 
@@ -1745,7 +1748,7 @@ get_log_info2() {
 
         echo -e "\n"
     }
-
+    local exit_status=0
     exit_status=$? # Capture the exit status immediately
     if [ $exit_status -ne 0 ]; then
         handle_error "get_log_info" "$exit_status"
@@ -1825,10 +1828,10 @@ get_system_identification() {
                 # Check for different output formats
                 if [[ "$used" =~ ^[0-9]+G$ ]]; then
                     # Handle GB format
-                    used=$(echo "$used" | sed 's/G//')
+                    used=${used//G/}
                 elif [[ "$used" =~ ^[0-9]+M$ ]]; then
                     # Handle MB format
-                    used=$(echo "$used" | sed 's/M//')
+                    used=${used//M/}
                 fi
             fi
             printf "\e[32m%-10s %-30s %-10s %-15s\e[0m\n" "$name" "${model:0:30}" "$size" "$used"
@@ -1842,6 +1845,7 @@ get_system_identification() {
 
         echo
     }
+    local exit_status=0
     exit_status=$? # Capture the exit status immediately
     if [ $exit_status -ne 0 ]; then
         handle_error "get_system_identification" "$exit_status"
@@ -1930,6 +1934,7 @@ perform_local_update() {
     if [ $exit_code -ne 0 ]; then
         log_message red "Error: Failed to update package list"
         handle_error "perform_local_update" "$exit_code"
+        # shellcheck disable=SC2317
         return 1
     fi
     log_message green "Package list updated successfully."
@@ -1942,6 +1947,7 @@ perform_local_update() {
     if [ $exit_code -ne 0 ]; then
         log_message red "Error: Failed to upgrade packages"
         handle_error "perform_local_update" "$exit_code"
+        # shellcheck disable=SC2317
         return 1
     fi
     log_message green "Packages upgraded successfully."
@@ -1954,6 +1960,7 @@ perform_local_update() {
     if [ $exit_code -ne 0 ]; then
         log_message red "Error: Failed to perform distribution upgrade"
         handle_error "perform_local_update" "$exit_code"
+        # shellcheck disable=SC2317
         return 1
     fi
     log_message green "Distribution upgrade performed successfully."
@@ -1966,6 +1973,7 @@ perform_local_update() {
     if [ $exit_code -ne 0 ]; then
         log_message red "Error: Failed to remove unnecessary packages"
         handle_error "perform_local_update" "$exit_code"
+        # shellcheck disable=SC2317
         return 1
     fi
     log_message green "Unnecessary packages removed successfully."
@@ -1978,6 +1986,7 @@ perform_local_update() {
     if [ $exit_code -ne 0 ]; then
         log_message red "Error: Failed to clean up"
         handle_error "perform_local_update" "$exit_code"
+        # shellcheck disable=SC2317
         return 1
     fi
     log_message green "Cleanup completed successfully."
@@ -2048,8 +2057,9 @@ execute_remote_script() {
     if check_dry_run_mode; then
         echo "ssh $remote_user@$remote_host 'bash $remote_script_remote'"
     else
-        if ! ssh "$remote_user@$remote_host" "bash $remote_script_remote"; then
+        if ! ssh "$remote_user@$remote_host" "bash \"$remote_script_remote\""; then
             handle_error "execute_remote_script" "Failed to execute $script_name script. Check permissions and script content."
+            # shellcheck disable=SC2317
             return 1
         fi
     fi
@@ -2065,6 +2075,7 @@ execute_remote_script() {
             log_message cyan "Remote log backed up at $backup_log"
         else
             handle_error "execute_remote_script" "Failed to retrieve log file from $script_name"
+            # shellcheck disable=SC2317
             return 1
         fi
     fi
@@ -2111,7 +2122,7 @@ update_changelog() {
     local changelog_file="$1"
     local main_script="$2"
     local current_version="$3"
-
+    # shellcheck disable=SC2317
     # Check if changelog file, main script, and version are provided
     if [[ -z "$changelog_file" || -z "$main_script" || -z "$current_version" ]]; then
         handle_error "update_changelog" "Changelog file, main script, or version is missing"
@@ -2155,6 +2166,7 @@ update_changelog() {
             echo "- $CHANGE_DETAILS" >>"$changelog_file"
         }; then
             handle_error "update_changelog" "Failed to update changelog"
+            # shellcheck disable=SC2317
             return 1
         fi
         log_message green "Changelog updated successfully!"
@@ -2168,6 +2180,7 @@ update_changelog() {
             echo "- Log Scanning updated." >>"$changelog_file"
         }; then
             handle_error "update_changelog" "Failed to update changelog"
+            # shellcheck disable=SC2317
             return 1
         fi
         log_message green "Changelog updated successfully!"
@@ -2182,6 +2195,7 @@ update_changelog() {
 update_changelog "$CHANGELOG_FILE" "$SCRIPT_NAME" "$VERSION"
 
 # Source the log functions
+# shellcheck disable=SC1091
 source /home/ageorge/Desktop/log_functions.sh
 
 # Set SUDO_ASKPASS_PATH
@@ -2191,35 +2205,31 @@ export SUDO_ASKPASS="$HOME/sudo_askpass.sh"
 setup_and_validate() {
     # Create cache directory if it doesn't exist
     if [ ! -d "$CACHE_DIR" ]; then
-        mkdir -p "$CACHE_DIR"
-        if [ $? -ne 0 ]; then
+        mkdir -p "$CACHE_DIR" || {
             echo "Error: Failed to create cache directory $CACHE_DIR"
             exit 1
-        fi
+        }
     fi
 
     # Set proper permissions for cache directory
-    chmod 700 "$CACHE_DIR"
-    if [ $? -ne 0 ]; then
+    chmod 700 "$CACHE_DIR" || {
         echo "Error: Failed to set permissions for cache directory $CACHE_DIR"
         exit 1
-    fi
+    }
 
     # Create last run file if it doesn't exist
     if [ ! -f "$LAST_RUN_FILE" ]; then
-        touch "$LAST_RUN_FILE"
-        if [ $? -ne 0 ]; then
+        touch "$LAST_RUN_FILE" || {
             echo "Error: Failed to create last run file $LAST_RUN_FILE"
             exit 1
-        fi
+        }
     fi
 
     # Set proper permissions for last run file
-    chmod 600 "$LAST_RUN_FILE"
-    if [ $? -ne 0 ]; then
+    chmod 600 "$LAST_RUN_FILE" || {
         echo "Error: Failed to set permissions for last run file $LAST_RUN_FILE"
         exit 1
-    fi
+    }
 
     # Validate environment variables
     for var in LOG_FILE LOCAL_UPDATE_ERROR LOCAL_UPDATE_DEBUG BACKUP_LOG_DIR SEEN_ERRORS_FILE temp_error_counts; do
@@ -2286,8 +2296,11 @@ logs=(
 get_log_info() {
     echo -e "\n\e[36mLog Information:\e[0m"
     local local_logs=()
+    # shellcheck disable=SC2034
     local remote_logs1=()
+    # shellcheck disable=SC2034
     local remote_logs2=()
+    # shellcheck disable=SC2034
     local remote_logs3=()
 
     for log in "${logs[@]}"; do
@@ -2302,14 +2315,17 @@ get_log_info() {
             fi
             ;;
         "remote1")
+            # shellcheck disable=SC2029
             remote_log=$(ssh "$REMOTE_USER@$REMOTE_HOST" "test -f '$path' && ${sudo_flag:+sudo }du -h '$path' || echo 'Not Found'")
             process_remote_log remote_logs1 "$name" "$remote_log"
             ;;
         "remote2")
+            # shellcheck disable=SC2029
             remote_log=$(ssh "$REMOTE_USER@$REMOTE_HOST2" "test -f '$path' && ${sudo_flag:+sudo }du -h '$path' || echo 'Not Found'")
             process_remote_log remote_logs2 "$name" "$remote_log"
             ;;
         "remote3")
+            # shellcheck disable=SC2029
             remote_log=$(ssh "$REMOTE_USER@$REMOTE_HOST3" "test -f '$path' && ${sudo_flag:+sudo }du -h '$path' || echo 'Not Found'")
             process_remote_log remote_logs3 "$name" "$remote_log"
             ;;
@@ -2338,16 +2354,20 @@ print_log_table() {
     local -n logs1=$2
     local title2=$3
     local -n logs2=$4
+    local name1
+    local size1
+    local name2
+    local size2
 
     printf "\e[36m%-36s %-10s  \e[36m%-36s %-10s\e[0m\n" "$title1:" "Size:" "$title2:" "Size:"
     local max_lines=$((${#logs1[@]} > ${#logs2[@]} ? ${#logs1[@]} : ${#logs2[@]}))
     for ((i = 0; i < max_lines; i++)); do
         local log1=${logs1[i]:-""}
         local log2=${logs2[i]:-""}
-        local name1=$(echo "$log1" | cut -d':' -f1)
-        local size1=$(echo "$log1" | cut -d':' -f2)
-        local name2=$(echo "$log2" | cut -d':' -f1)
-        local size2=$(echo "$log2" | cut -d':' -f2)
+        name1=$(echo "$log1" | cut -d':' -f1)
+        size1=$(echo "$log1" | cut -d':' -f2)
+        name2=$(echo "$log2" | cut -d':' -f1)
+        size2=$(echo "$log2" | cut -d':' -f2)
         printf "   \e[32m%-36s\e[0m : \e[32m%-10s\e[0m  \e[32m%-36s\e[0m : \e[32m%-10s\e[0m\n" "$name1" "$size1" "$name2" "$size2"
     done
     echo -e "\n"
@@ -2434,7 +2454,7 @@ scan_and_classify_logs() {
     }
 
     # Define the maximum number of error lines to display
-    MAX_ERRORS=2
+    MAX_ERRORS=10
     error_count=0
     timestamp=$(date)
 
@@ -2531,7 +2551,7 @@ scan_network_for_active_hosts() {
     # Loop through the array to get the hostnames and MAC addresses
     for entry in "${hosts[@]}"; do
         ip=$(echo "$entry" | grep -Eo '[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}')
-        hostname=$(echo "$entry" | sed -e 's/ (.*$//')
+        hostname=${entry%% *}
         mac_address=$(arp -an "$ip" | awk '{print $4}' | tr -d '[:space:]')
 
         # Print the result
@@ -2572,9 +2592,9 @@ print_diagram() {
     local total_width=$((max_hostname_width + max_ip_width + max_mac_width + max_services_width + 4 * 3 + 4))
 
     # Print the header
-    printf "%b\n" "${u_left}$(printf "%${total_width}s" "" | tr " " "─")${u_right}"
+    printf "%b\n" "${u_left}$(printf "%${total_width}s" "" | tr " " "═")${u_right}"
     printf "%b\n" "${v_bar} \e[96m$(printf "%-${max_hostname_width}s" "Hostname")\e[0m ${v_bar} \e[96m$(printf "%-${max_ip_width}s" "IP Address")\e[0m ${v_bar} \e[96m$(printf "%-${max_mac_width}s" "MAC Address")\e[0m ${v_bar} \e[96m$(printf "%-${max_services_width}s" "Open Services")\e[0m ${v_bar}"
-    printf "%b\n" "${u_left}$(printf "%${total_width}s" "" | tr " " "─")${u_right}"
+    printf "%b\n" "${u_left}$(printf "%${total_width}s" "" | tr " " "═")${u_right}"
 
     # Loop through each active host and display the information
     while read -r hostname ip mac; do
