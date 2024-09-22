@@ -1,12 +1,14 @@
 #!/bin/bash
 
 # Enable error trapping
-set -e
+set -o errexit
 
 # Function to handle errors
 handle_error() {
     local func_name="$1"
     local err="$2"
+    local retry_count=0
+    local max_retries=3 # Adjust the maximum retry attempts as needed
 
     # Log the error message
     log_message red "Error in function '${func_name}': ${err}"
@@ -16,10 +18,25 @@ handle_error() {
 
     # Perform additional actions if needed, such as:
     # - Sending a notification
-    # - Retrying the operation
     # - Logging more details
 
-    # Exit the script
+    # Implement retry logic
+    while [[ $retry_count -lt $max_retries ]]; do
+        # Retry the failed operation (adjust the retry logic as needed)
+        if retry_operation; then
+            log_message green "Retried successfully on attempt $retry_count"
+            return 0 # Exit the function successfully
+        fi
+
+        # Log the retry attempt
+        log_message yellow "Retrying after error... Attempt $retry_count/$max_retries"
+
+        # Increase the retry count
+        ((retry_count++))
+    done
+
+    # If all retries fail, exit the script
+    log_message red "All retries failed. Exiting script."
     exit 1
 }
 
@@ -28,7 +45,7 @@ trap 'handle_error "$BASH_COMMAND" "$?"' ERR
 trap 'echo "Script terminated prematurely" >> "$RUN_LOG"; exit 1' SIGINT SIGTERM
 
 # Variables
-VERSION="1.2.64"
+VERSION="1.2.65"
 SCRIPT_NAME="local_update.sh"
 REMOTE_USER="ageorge"
 REMOTE_HOST="192.168.1.248"
@@ -1657,7 +1674,6 @@ copy_local_to_remote2() {
         fi
     fi
 }
-
 # shellcheck disable=SC2029
 copy_local_to_remote3() {
     if check_dry_run_mode; then
