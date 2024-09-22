@@ -9,6 +9,6 @@ git add .
 # Commit the changes with the specified message
 git commit -m "$commit_message"
 
-# Push the changes to the remote repository
+# Push the changes to the remote repositoryTEST
 (replace "origin" with your remote name)
 git push origin main
