@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Enable error trapping
-set -o errexit
+set -e
 
 # Function to handle errors
 handle_error() {
@@ -43,6 +43,7 @@ handle_error() {
 # Trap errors and signals
 trap 'handle_error "$BASH_COMMAND" "$?"' ERR
 trap 'echo "Script terminated prematurely" >> "$RUN_LOG"; exit 1' SIGINT SIGTERM
+trap 'handle_error "SIGPIPE received" "$?"' SIGPIPE
 
 # Variables
 VERSION="1.2.65"
@@ -131,20 +132,24 @@ true >"$RUN_LOG"
 
 # Parse command-line arguments
 while [[ "$1" != "" ]]; do
-    case $1 in
-    --dry-run)
-        DRY_RUN=true
-        ;;
-    --help)
-        usage
-        exit 0
-        ;;
-    *)
-        echo -e "\e[31mInvalid option: $1\e[0m"
-        usage
-        exit 1
-        ;;
-    esac
+    if [[ -z "$1" ]]; then
+        echo "Warning: No argument provided. Skipping..."
+    else
+        case $1 in
+        --dry-run)
+            DRY_RUN=true
+            ;;
+        --help)
+            usage
+            exit 0
+            ;;
+        *)
+            echo -e "\e[31mInvalid option: $1\e[0m"
+            usage
+            exit 1
+            ;;
+        esac
+    fi
     shift
 done
 
@@ -2217,12 +2222,26 @@ update_changelog() {
 # Call the function with the existing VERSION variable
 update_changelog "$CHANGELOG_FILE" "$SCRIPT_NAME" "$VERSION"
 
-# Source the log functions
-# shellcheck disable=SC1091
-source /home/ageorge/Desktop/log_functions.sh
+# shellcheck disable=SC1090
+# Function to source files from a specific directory
+source_from_dir() {
+    local dir="$1"
+    local file="$2"
+    if [[ -d "$dir" && -f "$dir/$file" ]]; then
+        source "$dir/$file"
+        # Add a directive to specify the location of the sourced file
+        . "$dir/$file"
+    else
+        echo "Error: File $file not found in directory $dir" >&2
+        exit 1
+    fi
+}
 
-# Set SUDO_ASKPASS_PATH
-export SUDO_ASKPASS="$HOME/sudo_askpass.sh"
+# Source your log_functions.sh file using the function
+source_from_dir "/home/ageorge/Desktop" "log_functions.sh"
+
+# Example usage (assuming log_functions.sh defines functions for logging)
+log_message "This script is located in $(dirname "$0")"
 
 # Validation and setup section
 setup_and_validate() {
