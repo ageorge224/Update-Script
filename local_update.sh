@@ -1,7 +1,10 @@
 #!/bin/bash
 
 # Enable error trapping
-set -e
+set -o errexit # Enable strict error checking
+#set -o nounset # Exit if an unset variable is used
+set -o noglob # Disable filename expansion
+set -eE
 
 # Function to handle errors
 handle_error() {
@@ -46,7 +49,7 @@ trap 'echo "Script terminated prematurely" >> "$RUN_LOG"; exit 1' SIGINT SIGTERM
 trap 'handle_error "SIGPIPE received" "$?"' SIGPIPE
 
 # Variables
-VERSION="1.2.7"
+VERSION="1.2.72"
 SCRIPT_NAME="local_update.sh"
 REMOTE_USER="ageorge"
 REMOTE_HOST="192.168.1.248"
@@ -420,7 +423,6 @@ check_restart_required() {
         log_message blue "Time since last reboot:"
         log_message blue "\n$(uptime)\n"
     } || {
-        local exit_code=0
         exit_code=$?
         handle_error "check_restart_required" "Failed to check restart status: ${exit_code}"
     }
@@ -2143,10 +2145,15 @@ update_changelog() {
     local changelog_file="$1"
     local main_script="$2"
     local current_version="$3"
-    # shellcheck disable=SC2317
+
     # Check if changelog file, main script, and version are provided
     if [[ -z "$changelog_file" || -z "$main_script" || -z "$current_version" ]]; then
         handle_error "update_changelog" "Changelog file, main script, or version is missing"
+        return 1
+    fi
+
+    if [[ ! -f "$changelog_file" ]]; then
+        handle_error "update_changelog" "Changelog file does not exist"
         return 1
     fi
 
@@ -2175,7 +2182,10 @@ update_changelog() {
 
         # Update the VERSION variable in the main script
         if [[ "$NEW_VERSION" != "$current_version" ]]; then
-            sed -i "s/VERSION=\"$current_version\"/VERSION=\"$NEW_VERSION\"/" "$main_script"
+            if ! sed -i "s/VERSION=\"$current_version\"/VERSION=\"$NEW_VERSION\"/" "$main_script"; then
+                handle_error "update_changelog" "Failed to update version in main script"
+                return 1
+            fi
             log_message blue "Updated script version to $NEW_VERSION"
         fi
 
@@ -2187,7 +2197,6 @@ update_changelog() {
             echo "- $CHANGE_DETAILS" >>"$changelog_file"
         }; then
             handle_error "update_changelog" "Failed to update changelog"
-            # shellcheck disable=SC2317
             return 1
         fi
         log_message green "Changelog updated successfully!"
@@ -2201,7 +2210,6 @@ update_changelog() {
             echo "- Log Scanning updated." >>"$changelog_file"
         }; then
             handle_error "update_changelog" "Failed to update changelog"
-            # shellcheck disable=SC2317
             return 1
         fi
         log_message green "Changelog updated successfully!"
@@ -2240,57 +2248,54 @@ log_message "This script is located in $(dirname "$0")"
 setup_and_validate() {
     # Create cache directory if it doesn't exist
     if [ ! -d "$CACHE_DIR" ]; then
-        mkdir -p "$CACHE_DIR" || {
-            echo "Error: Failed to create cache directory $CACHE_DIR"
-            exit 1
-        }
+        if ! mkdir -p "$CACHE_DIR"; then
+            handle_error "setup_and_validate" "Failed to create cache directory $CACHE_DIR"
+            return 1
+        fi
     fi
 
     # Set proper permissions for cache directory
-    chmod 700 "$CACHE_DIR" || {
-        echo "Error: Failed to set permissions for cache directory $CACHE_DIR"
-        exit 1
-    }
+    if ! chmod 700 "$CACHE_DIR"; then
+        handle_error "setup_and_validate" "Failed to set permissions for cache directory $CACHE_DIR"
+        return 1
+    fi
 
     # Create last run file if it doesn't exist
     if [ ! -f "$LAST_RUN_FILE" ]; then
-        touch "$LAST_RUN_FILE" || {
-            echo "Error: Failed to create last run file $LAST_RUN_FILE"
-            exit 1
-        }
+        if ! touch "$LAST_RUN_FILE"; then
+            handle_error "setup_and_validate" "Failed to create last run file $LAST_RUN_FILE"
+            return 1
+        fi
     fi
 
     # Set proper permissions for last run file
-    chmod 600 "$LAST_RUN_FILE" || {
-        echo "Error: Failed to set permissions for last run file $LAST_RUN_FILE"
-        exit 1
-    }
+    if ! chmod 600 "$LAST_RUN_FILE"; then
+        handle_error "setup_and_validate" "Failed to set permissions for last run file $LAST_RUN_FILE"
+        return 1
+    fi
 
     # Validate environment variables
     for var in LOG_FILE LOCAL_UPDATE_ERROR LOCAL_UPDATE_DEBUG BACKUP_LOG_DIR SEEN_ERRORS_FILE temp_error_counts; do
         if [ -z "${!var}" ]; then
-            echo "Error: Environment variable '$var' is not set."
-            exit 1
+            handle_error "setup_and_validate" "Environment variable '$var' is not set."
+            return 1
         fi
     done
 
     # Validate remote access (basic check)
-    if ssh -o ConnectTimeout=5 "$REMOTE_USER@$REMOTE_HOST" exit &>/dev/null; then
-        echo "Remote connection established successfully."
-    else
-        echo "Error: Cannot connect to remote host $REMOTE_HOST as $REMOTE_USER."
-        echo "Please ensure SSH access is configured correctly."
-        exit 1
+    if ! ssh -o ConnectTimeout=5 "$REMOTE_USER@$REMOTE_HOST" exit &>/dev/null; then
+        handle_error "setup_and_validate" "Cannot connect to remote host $REMOTE_HOST as $REMOTE_USER. Please ensure SSH access is configured correctly."
+        return 1
     fi
 
     # Validate 'parallel' installation
     if ! parallel --version &>/dev/null; then
-        echo "Error: 'parallel' command not found. Please install GNU Parallel."
-        # ... (installation instructions)
-        exit 1
+        handle_error "setup_and_validate" "'parallel' command not found. Please install GNU Parallel."
+        # Optionally provide installation instructions
+        return 1
     fi
 
-    echo "Setup and validation completed successfully."
+    log_message green "Setup and validation completed successfully."
 }
 
 # Call the setup and validation function
@@ -2408,19 +2413,6 @@ print_log_table() {
     echo -e "\n"
 }
 
-# Error classification patterns
-declare -A error_patterns=(
-    ["PermissionError"]="permission denied|access denied"
-    ["FileNotFoundError"]="file not found|no such file or directory"
-    ["MemoryError"]="out of memory|cannot allocate memory"
-    ["OSError"]="OSError|I/O error|cannot open directory"
-    ["DatabaseError"]="DatabaseError|database is locked"
-    ["OperationalError"]="OperationalError|SQL error"
-    ["ConnectionError"]="ConnectionError|connection refused"
-    ["TimeoutError"]="TimeoutError|timed out"
-    ["GenericError"]="error|exception|failed|failure|cannot change mount namespace"
-)
-
 # Function to scan and classify logs
 scan_and_classify_logs() {
     log_files=("${logs[@]}")
@@ -2521,7 +2513,6 @@ scan_and_classify_logs() {
     # Export the functions and variables for parallel execution
     export -f process_log process_log_content remote_log_scan
     export centralized_error_log SEEN_ERRORS_FILE REMOTE_USER REMOTE_HOST REMOTE_HOST2 REMOTE_HOST3 SUDO_ASKPASS
-    export -A error_patterns
     export MAX_ERRORS
 
     # Run the log processing in parallel with 6 cores
