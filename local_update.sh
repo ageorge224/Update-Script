@@ -46,7 +46,7 @@ trap 'echo "Script terminated prematurely" >> "$RUN_LOG"; exit 1' SIGINT SIGTERM
 trap 'handle_error "SIGPIPE received" "$?"' SIGPIPE
 
 # Variables
-VERSION="1.2.65"
+VERSION="1.2.7"
 SCRIPT_NAME="local_update.sh"
 REMOTE_USER="ageorge"
 REMOTE_HOST="192.168.1.248"
@@ -597,15 +597,14 @@ create_remote_script3() {
 #!/bin/bash
 
 VERSION="1.2 (AgeorgeBackup)"
-SCRIPT_NAME="remote_update3.sh"
 LOG_FILE="/tmp/remote_update.log"
-SUMMARY_LOG="/tmp/remote_update_summary.log"
 BACKUP_LOG_DIR="$HOME/Desktop"
 BACKUP_LOG_FILE="$BACKUP_LOG_DIR/remote_update.log"
 SUDO_ASKPASS_PATH="$HOME/sudo_askpass.sh"
 RUN_LOG="/tmp/remote_run_log.txt"
 ERROR_LOG="/tmp/remote_error_log.txt"
 REMOTE_SCRIPT_LOCAL3="/tmp/remote_update3.sh"
+# shellcheck disable=SC2269
 DRY_RUN="$DRY_RUN" # Pass DRY_RUN from the main script
 HostnameID="AGeorge-Backup.home"
 
@@ -690,7 +689,6 @@ verify_and_create_directory() {
         if [[ "$DRY_RUN" != "true" ]]; then
             if ! mkdir -p "$dir"; then
                 handle_error "verify_and_create_directory" "Failed to create directory: $dir"
-                return 1
             fi
         else
             log_message yellow "[DRY RUN] Would create directory: $dir"
@@ -698,26 +696,23 @@ verify_and_create_directory() {
     fi
     if [[ ! -w "$dir" && "$DRY_RUN" != "true" ]]; then
         handle_error "verify_and_create_directory" "Cannot write to directory: $dir"
-        return 1
     fi
 }
 
 verify_file_path() {
     local file="$1"
-    local dir=$(dirname "$file")
+    local dir
+    dir=$(dirname "$file")
     if ! verify_and_create_directory "$dir"; then
         handle_error "verify_file_path" "Failed to verify/create directory for file: $file"
-        return 1
     fi
     if [[ ! -f "$file" && "$2" != "create" ]]; then
         handle_error "verify_file_path" "File does not exist: $file"
-        return 1
     fi
     if [[ "$2" == "create" && ! -f "$file" ]]; then
         if [[ "$DRY_RUN" != "true" ]]; then
             if ! touch "$file"; then
                 handle_error "verify_file_path" "Failed to create file: $file"
-                return 1
             fi
         else
             log_message yellow "[DRY RUN] Would create file: $file"
@@ -725,7 +720,6 @@ verify_file_path() {
     fi
     if [[ ! -w "$file" && "$DRY_RUN" != "true" ]]; then
         handle_error "verify_file_path" "Cannot write to file: $file"
-        return 1
     fi
 }
 
@@ -733,7 +727,6 @@ verify_file_path() {
 validate_remote_environment() {
     if [[ -z "$VERSION" ]]; then
         handle_error "validate_remote_environment" "VERSION is not set"
-        return 1
     fi
 
     # Verify and create necessary directories and files
@@ -750,7 +743,6 @@ validate_remote_environment() {
     for cmd in "${required_commands[@]}"; do
         if ! command -v "$cmd" &>/dev/null; then
             handle_error "validate_remote_environment" "Required command not found: $cmd"
-            return 1
         fi
     done
 
@@ -793,12 +785,11 @@ get_system_identification() {
                 used="N/A"
             else
                 # Check for different output formats
-                if [[ "$used" =~ ^[0-9]+G$ ]]; then
-                    # Handle GB format
-                    used=$(echo "$used" | sed 's/G//')
+                if [[ "$used" =~ ^([0-9]+)G$ ]]; then
+                    used=$((BASH_REMATCH[1] * 1024 ^ 3))
                 elif [[ "$used" =~ ^[0-9]+M$ ]]; then
                     # Handle MB format
-                    used=$(echo "$used" | sed 's/M//')
+                    used=$((BASH_REMATCH[1] * 1024 ^ 2))
                 fi
             fi
             printf "\e[32m%-10s %-30s %-10s %-15s\e[0m\n" "$name" "${model:0:30}" "$size" "$used"
@@ -811,7 +802,12 @@ get_system_identification() {
         done
 
         echo
-    } || handle_error "get_system_identification" "$?"
+    }
+    local exit_status=0
+    exit_status=$? # Capture the exit status immediately
+    if [ $exit_status -ne 0 ]; then
+        handle_error "get_log_info" "$exit_status"
+    fi
 }
 
 get_system_identification
@@ -912,6 +908,7 @@ main() {
 # Run main function
 main
 
+
 EOF
 
     # Set execute permissions on the remote script
@@ -939,17 +936,17 @@ create_remote_script2() {
 #!/bin/bash
 
 VERSION="1.2 (PiHole2)"
-SCRIPT_NAME="remote_update2.sh"
 LOG_FILE="/tmp/remote_update.log"
-SUMMARY_LOG="/tmp/remote_update_summary.log"
 BACKUP_LOG_DIR="$HOME/Desktop"
 BACKUP_LOG_FILE="$BACKUP_LOG_DIR/remote_update.log"
 SUDO_ASKPASS_PATH="$HOME/sudo_askpass.sh"
 RUN_LOG="/tmp/remote_run_log.txt"
 ERROR_LOG="/tmp/remote_error_log.txt"
 REMOTE_SCRIPT_LOCAL2="/tmp/remote_update2.sh"
+# shellcheck disable=SC2269
 DRY_RUN="$DRY_RUN" # Pass DRY_RUN from the main script
 HostnameID="pihole2.home"
+
 # Function to log messages with color
 log_message() {
     local color=$1
@@ -1031,7 +1028,6 @@ verify_and_create_directory() {
         if [[ "$DRY_RUN" != "true" ]]; then
             if ! mkdir -p "$dir"; then
                 handle_error "verify_and_create_directory" "Failed to create directory: $dir"
-                return 1
             fi
         else
             log_message yellow "[DRY RUN] Would create directory: $dir"
@@ -1039,26 +1035,23 @@ verify_and_create_directory() {
     fi
     if [[ ! -w "$dir" && "$DRY_RUN" != "true" ]]; then
         handle_error "verify_and_create_directory" "Cannot write to directory: $dir"
-        return 1
     fi
 }
 
 verify_file_path() {
     local file="$1"
-    local dir=$(dirname "$file")
+    local dir
+    dir=$(dirname "$file")
     if ! verify_and_create_directory "$dir"; then
         handle_error "verify_file_path" "Failed to verify/create directory for file: $file"
-        return 1
     fi
     if [[ ! -f "$file" && "$2" != "create" ]]; then
         handle_error "verify_file_path" "File does not exist: $file"
-        return 1
     fi
     if [[ "$2" == "create" && ! -f "$file" ]]; then
         if [[ "$DRY_RUN" != "true" ]]; then
             if ! touch "$file"; then
                 handle_error "verify_file_path" "Failed to create file: $file"
-                return 1
             fi
         else
             log_message yellow "[DRY RUN] Would create file: $file"
@@ -1066,7 +1059,6 @@ verify_file_path() {
     fi
     if [[ ! -w "$file" && "$DRY_RUN" != "true" ]]; then
         handle_error "verify_file_path" "Cannot write to file: $file"
-        return 1
     fi
 }
 
@@ -1074,7 +1066,6 @@ verify_file_path() {
 validate_remote_environment() {
     if [[ -z "$VERSION" ]]; then
         handle_error "validate_remote_environment" "VERSION is not set"
-        return 1
     fi
 
     # Verify and create necessary directories and files
@@ -1091,7 +1082,6 @@ validate_remote_environment() {
     for cmd in "${required_commands[@]}"; do
         if ! command -v "$cmd" &>/dev/null; then
             handle_error "validate_remote_environment" "Required command not found: $cmd"
-            return 1
         fi
     done
 
@@ -1134,12 +1124,11 @@ get_system_identification() {
                 used="N/A"
             else
                 # Check for different output formats
-                if [[ "$used" =~ ^[0-9]+G$ ]]; then
-                    # Handle GB format
-                    used=$(echo "$used" | sed 's/G//')
+                if [[ "$used" =~ ^([0-9]+)G$ ]]; then
+                    used=$((BASH_REMATCH[1] * 1024 ^ 3))
                 elif [[ "$used" =~ ^[0-9]+M$ ]]; then
                     # Handle MB format
-                    used=$(echo "$used" | sed 's/M//')
+                    used=$((BASH_REMATCH[1] * 1024 ^ 2))
                 fi
             fi
             printf "\e[32m%-10s %-30s %-10s %-15s\e[0m\n" "$name" "${model:0:30}" "$size" "$used"
@@ -1152,7 +1141,12 @@ get_system_identification() {
         done
 
         echo
-    } || handle_error "get_system_identification" "$?"
+    }
+    local exit_status=0
+    exit_status=$? # Capture the exit status immediately
+    if [ $exit_status -ne 0 ]; then
+        handle_error "get_log_info" "$exit_status"
+    fi
 }
 
 get_system_identification
@@ -1287,28 +1281,29 @@ BACKUP_LOG_FILE="$BACKUP_LOG_DIR/remote_update.log"
 SUDO_ASKPASS_PATH="$HOME/sudo_askpass.sh"
 RUN_LOG="/tmp/remote_run_log.txt"
 ERROR_LOG="/tmp/remote_error_log.txt"
-DRY_RUN="$DRY_RUN"  # Pass DRY_RUN from the main script
+# shellcheck disable=SC2269
+DRY_RUN="$DRY_RUN" # Pass DRY_RUN from the main script
 
 # Function to log messages with color
 log_message() {
     local color=$1
     local message=$2
     case $color in
-        red) color_code="\e[31m";;
-        green) color_code="\e[32m";;
-        yellow) color_code="\e[33m";;
-        blue) color_code="\e[34m";;
-        magenta) color_code="\e[35m";;
-        cyan) color_code="\e[36m";;
-        white) color_code="\e[37m";;
-        gray) color_code="\e[90m";;
-        light_red) color_code="\e[91m";;
-        light_green) color_code="\e[92m";;
-        light_yellow) color_code="\e[93m";;
-        light_blue) color_code="\e[94m";;
-        light_magenta) color_code="\e[95m";;
-        light_cyan) color_code="\e[96m";;
-        *) color_code="";;
+    red) color_code="\e[31m" ;;
+    green) color_code="\e[32m" ;;
+    yellow) color_code="\e[33m" ;;
+    blue) color_code="\e[34m" ;;
+    magenta) color_code="\e[35m" ;;
+    cyan) color_code="\e[36m" ;;
+    white) color_code="\e[37m" ;;
+    gray) color_code="\e[90m" ;;
+    light_red) color_code="\e[91m" ;;
+    light_green) color_code="\e[92m" ;;
+    light_yellow) color_code="\e[93m" ;;
+    light_blue) color_code="\e[94m" ;;
+    light_magenta) color_code="\e[95m" ;;
+    light_cyan) color_code="\e[96m" ;;
+    *) color_code="" ;;
     esac
     echo -e "${color_code}${message}\e[0m" | tee -a "$LOG_FILE"
 }
@@ -1317,8 +1312,8 @@ log_message() {
 export SUDO_ASKPASS="$SUDO_ASKPASS_PATH"
 
 # Initialize RUN_LOG and ERROR_LOG
-true> "$RUN_LOG"
-true> "$ERROR_LOG"
+true >"$RUN_LOG"
+true >"$ERROR_LOG"
 
 # Enable error trapping
 set -e
@@ -1351,7 +1346,7 @@ trap 'echo "Script terminated prematurely" >> "$RUN_LOG"; exit 1' SIGINT SIGTERM
 validate_ip() {
     local ip=$1
     if [[ $ip =~ ^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$ ]]; then
-        IFS='.' read -r -a ip_parts <<< "$ip"
+        IFS='.' read -r -a ip_parts <<<"$ip"
         for part in "${ip_parts[@]}"; do
             if [[ $part -gt 255 ]]; then
                 return 1
@@ -1370,7 +1365,6 @@ verify_and_create_directory() {
         if [[ "$DRY_RUN" != "true" ]]; then
             if ! mkdir -p "$dir"; then
                 handle_error "verify_and_create_directory" "Failed to create directory: $dir"
-                return 1
             fi
         else
             log_message yellow "[DRY RUN] Would create directory: $dir"
@@ -1378,26 +1372,23 @@ verify_and_create_directory() {
     fi
     if [[ ! -w "$dir" && "$DRY_RUN" != "true" ]]; then
         handle_error "verify_and_create_directory" "Cannot write to directory: $dir"
-        return 1
     fi
 }
 
 verify_file_path() {
     local file="$1"
-    local dir=$(dirname "$file")
+    local dir
+    dir=$(dirname "$file")
     if ! verify_and_create_directory "$dir"; then
         handle_error "verify_file_path" "Failed to verify/create directory for file: $file"
-        return 1
     fi
     if [[ ! -f "$file" && "$2" != "create" ]]; then
         handle_error "verify_file_path" "File does not exist: $file"
-        return 1
     fi
     if [[ "$2" == "create" && ! -f "$file" ]]; then
         if [[ "$DRY_RUN" != "true" ]]; then
             if ! touch "$file"; then
                 handle_error "verify_file_path" "Failed to create file: $file"
-                return 1
             fi
         else
             log_message yellow "[DRY RUN] Would create file: $file"
@@ -1405,7 +1396,6 @@ verify_file_path() {
     fi
     if [[ ! -w "$file" && "$DRY_RUN" != "true" ]]; then
         handle_error "verify_file_path" "Cannot write to file: $file"
-        return 1
     fi
 }
 
@@ -1413,7 +1403,6 @@ verify_file_path() {
 validate_remote_environment() {
     if [[ -z "$VERSION" ]]; then
         handle_error "validate_remote_environment" "VERSION is not set"
-        return 1
     fi
 
     # Verify and create necessary directories and files
@@ -1427,9 +1416,8 @@ validate_remote_environment() {
     # Check for required commands
     local required_commands=("ssh" "scp" "md5sum" "sudo" "apt-get" "pihole")
     for cmd in "${required_commands[@]}"; do
-        if ! command -v "$cmd" &> /dev/null; then
+        if ! command -v "$cmd" &>/dev/null; then
             handle_error "validate_remote_environment" "Required command not found: $cmd"
-            return 1
         fi
     done
 
@@ -1472,12 +1460,11 @@ get_system_identification() {
                 used="N/A"
             else
                 # Check for different output formats
-                if [[ "$used" =~ ^[0-9]+G$ ]]; then
-                    # Handle GB format
-                    used=$(echo "$used" | sed 's/G//')
+                if [[ "$used" =~ ^([0-9]+)G$ ]]; then
+                    used=$((BASH_REMATCH[1] * 1024 ^ 3))
                 elif [[ "$used" =~ ^[0-9]+M$ ]]; then
                     # Handle MB format
-                    used=$(echo "$used" | sed 's/M//')
+                    used=$((BASH_REMATCH[1] * 1024 ^ 2))
                 fi
             fi
             printf "\e[32m%-10s %-30s %-10s %-15s\e[0m\n" "$name" "${model:0:30}" "$size" "$used"
@@ -1490,7 +1477,12 @@ get_system_identification() {
         done
 
         echo
-    } || handle_error "get_system_identification" "$?"
+    }
+    local exit_status=0
+    exit_status=$? # Capture the exit status immediately
+    if [ $exit_status -ne 0 ]; then
+        handle_error "get_log_info" "$exit_status"
+    fi
 }
 
 get_system_identification
@@ -1510,7 +1502,7 @@ perform_remote_update() {
     verify_file_path "/tmp/pihole_gravity.log" "create" || return 1
 
     for step in "${update_steps[@]}"; do
-        IFS=':' read -r description command <<< "$step"
+        IFS=':' read -r description command <<<"$step"
         echo
 
         # Log the start of the update step in blue
@@ -1521,16 +1513,16 @@ perform_remote_update() {
                 # Start the command in the background
                 eval "$command" &
                 pid=$!
-                
+
                 # Display a spinning progress indicator
                 spin='-\|/'
                 i=0
                 while kill -0 $pid 2>/dev/null; do
-                    i=$(( (i+1) % 4 ))
+                    i=$(((i + 1) % 4))
                     printf "\r[%c] Updating Pi-hole gravity..." "${spin:$i:1}"
                     sleep .1
                 done
-              # Log the success of the update in green
+                # Log the success of the update in green
                 log_message green "Pi-hole gravity update completed successfully!"
             else
                 # Execute the command and log the result
@@ -1545,14 +1537,14 @@ perform_remote_update() {
             log_message yellow "[DRY RUN] Would run: $command"
         fi
     done
-    
-     if [[ "$DRY_RUN" != "true" ]]; then
+
+    if [[ "$DRY_RUN" != "true" ]]; then
         if [[ -f /tmp/pihole_gravity.log ]] && grep -q "FTL is listening" /tmp/pihole_gravity.log; then
             log_message green "Pi-hole gravity update completed successfully!"
             echo
         else
+            echo -e "Pi-hole gravity update encountered an issue" >>"$SUMMARY_LOG"
             handle_error "perform_remote_update" "Pi-hole gravity update encountered an issue. Check /tmp/pihole_gravity.log for details."
-            echo -e "Pi-hole gravity update encountered an issue" >> "$SUMMARY_LOG"
         fi
     fi
 }
@@ -1583,19 +1575,19 @@ check_restart_required() {
 check_restart_required
 
 # Check unbound status
-    log_message blue "Checking unbound status"
-    if [[ "$DRY_RUN" != "true" ]]; then
-        if ! sudo -A netstat -tulpen | grep ':5335' | tee -a "$LOG_FILE"; then
-            handle_error "perform_remote_update" "Failed to check unbound status"
-        fi
-    else
-        log_message yellow "[DRY RUN] Would run: sudo netstat -tulpen | grep ':5335'"
+log_message blue "Checking unbound status"
+if [[ "$DRY_RUN" != "true" ]]; then
+    if ! sudo -A netstat -tulpen | grep ':5335' | tee -a "$LOG_FILE"; then
+        handle_error "perform_remote_update" "Failed to check unbound status"
     fi
+else
+    log_message yellow "[DRY RUN] Would run: sudo netstat -tulpen | grep ':5335'"
+fi
 
 # Main execution
 main() {
-    log_message blue "Starting remote update process"
-    
+    log_message blue "Starting Pi_Hole update process"
+
     if validate_remote_environment; then
         if [[ "$DRY_RUN" == "true" ]]; then
             log_message yellow "Running in DRY RUN mode. No changes will be made."
@@ -1617,13 +1609,14 @@ main() {
             log_message cyan "         {{[[[**Completed, Pi-Hole finished.**]]]}}"
         fi
     else
-        log_message red "Validation of remote environment failed. Aborting update process."
+        log_message red "Validation of Pi-Hole environment failed. Aborting update process."
         return 1
     fi
 }
 
 # Run main function
 main
+
 
 EOF
 
