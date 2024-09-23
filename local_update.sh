@@ -192,7 +192,7 @@ print_header() {
     local content_width=$((width - 2)) # Subtract 2 for the left and right borders
 
     print_line() {
-        printf "\e[36m%s\e[0m\n" "$(printf "%${width}s" | tr ' ' '─')" # Directly use the ─ character
+        printf "\e[36m%s\e[0m\n" "$(printf "%${width}s" | tr ' ' '-')" # Directly use the ─ character
     }
 
     print_content_line() {
@@ -217,7 +217,7 @@ print_header() {
         [[ -n $line ]] && print_content_line "$(printf "%-${#prefix}s%s" "$prefix" "$line")"
     }
 
-    echo -e "\e[36m╭$(printf "%${width}s" | tr ' ' '─')╮\e[0m" # Use ─ directly here
+    echo -e "\e[36m╭$(printf "%${width}s" | tr ' ' '-')╮\e[0m" # Use ─ directly here
     printf "\e[36m│\e[1;33m %-${content_width}s \e[36m│\e[0m\n" "$script_name v$version"
     print_line
     print_content_line "$(printf "%-15s\e[32m%s" "Date:" "$date")"
@@ -237,7 +237,7 @@ print_header() {
         value="${!var}"
         print_content_line "$(printf "%-20s \e[32m%s" "$var:" "$value")"
     done
-    echo -e "\e[36m╰$(printf "%${width}s" | tr ' ' '─')╯\e[0m" # Use ─ directly here
+    echo -e "\e[36m╰$(printf "%${width}s" | tr ' ' '-')╯\e[0m" # Use ─ directly here
     echo
 }
 
@@ -2627,9 +2627,9 @@ print_diagram() {
     local total_width=$((max_hostname_width + max_ip_width + max_mac_width + max_services_width + 4 * 3 + 4))
 
     # Print the header
-    printf "%b\n" "${u_left}$(printf "%${total_width}s" "" | tr " " "═")${u_right}"
+    printf "%b\n" "${u_left}$(printf "%${total_width}s" "" | tr " " "-")${u_right}"
     printf "%b\n" "${v_bar} \e[96m$(printf "%-${max_hostname_width}s" "Hostname")\e[0m ${v_bar} \e[96m$(printf "%-${max_ip_width}s" "IP Address")\e[0m ${v_bar} \e[96m$(printf "%-${max_mac_width}s" "MAC Address")\e[0m ${v_bar} \e[96m$(printf "%-${max_services_width}s" "Open Services")\e[0m ${v_bar}"
-    printf "%b\n" "${u_left}$(printf "%${total_width}s" "" | tr " " "═")${u_right}"
+    printf "%b\n" "${u_left}$(printf "%${total_width}s" "" | tr " " "-")${u_right}"
 
     # Loop through each active host and display the information
     while read -r hostname ip mac; do
@@ -2640,7 +2640,7 @@ print_diagram() {
     done < <(scan_network_for_active_hosts)
 
     # Print the footer
-    printf "%b\n" "${b_left}$(printf "%${total_width}s" "" | tr " " "─")${b_right}"
+    printf "%b\n" "${b_left}$(printf "%${total_width}s" "" | tr " " "-")${b_right}"
 }
 
 print_diagram
