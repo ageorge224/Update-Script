@@ -596,7 +596,7 @@ create_remote_script3() {
     cat <<'EOF' >"$REMOTE_SCRIPT_LOCAL3"
 #!/bin/bash
 
-VERSION="1.12"
+VERSION="1.2 (AgeorgeBackup)"
 SCRIPT_NAME="remote_update3.sh"
 LOG_FILE="/tmp/remote_update.log"
 SUMMARY_LOG="/tmp/remote_update_summary.log"
@@ -938,7 +938,7 @@ create_remote_script2() {
     cat <<'EOF' >"$REMOTE_SCRIPT_LOCAL2"
 #!/bin/bash
 
-VERSION="1.12"
+VERSION="1.2 (PiHole2)"
 SCRIPT_NAME="remote_update2.sh"
 LOG_FILE="/tmp/remote_update.log"
 SUMMARY_LOG="/tmp/remote_update_summary.log"
@@ -1279,7 +1279,7 @@ create_remote_script() {
     cat <<'EOF' >"$REMOTE_SCRIPT_LOCAL"
 #!/bin/bash
 
-VERSION="1.1.07"
+VERSION="1.2 (pihole.main)"
 LOG_FILE="/tmp/remote_update.log"
 SUMMARY_LOG="/tmp/remote_update_summary.log"
 BACKUP_LOG_DIR="$HOME/Desktop"
@@ -1317,8 +1317,8 @@ log_message() {
 export SUDO_ASKPASS="$SUDO_ASKPASS_PATH"
 
 # Initialize RUN_LOG and ERROR_LOG
-> "$RUN_LOG"
-> "$ERROR_LOG"
+true> "$RUN_LOG"
+true> "$ERROR_LOG"
 
 # Enable error trapping
 set -e
