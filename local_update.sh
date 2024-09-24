@@ -49,7 +49,7 @@ trap 'echo "Script terminated prematurely" >> "$RUN_LOG"; exit 1' SIGINT SIGTERM
 trap 'handle_error "SIGPIPE received" "$?"' SIGPIPE
 
 # Variables
-VERSION="1.2.72"
+VERSION="1.2.75"
 SCRIPT_NAME="local_update.sh"
 REMOTE_USER="ageorge"
 REMOTE_HOST="192.168.1.248"
@@ -820,9 +820,6 @@ validate_remote_environment() {
     fi
 
     # Verify and create necessary directories and files
-    verify_and_create_directory "$BACKUP_LOG_DIR" || return 1
-    verify_file_path "$LOG_FILE" "create" || return 1
-    verify_file_path "$BACKUP_LOG_FILE" "create" || return 1
     verify_file_path "$SUDO_ASKPASS_PATH" || return 1
     verify_file_path "$RUN_LOG" "create" || return 1
     verify_file_path "$ERROR_LOG" "create" || return 1
@@ -1112,7 +1109,7 @@ handle_error() {
     log_message red "Error in function '${func_name}': ${err}"
 
     # Optionally, write the error to a specific error log file
-    echo "Error in function '${func_name}': ${err}" >>"$LOCAL_UPDATE_ERROR"
+    echo "Error in function '${func_name}': ${err}" >>"$BACKUP_LOG_FILE"
 
     # Perform additional actions if needed, such as:
     # - Sending a notification
@@ -1191,9 +1188,6 @@ validate_remote_environment() {
     fi
 
     # Verify and create necessary directories and files
-    verify_and_create_directory "$BACKUP_LOG_DIR" || return 1
-    verify_file_path "$LOG_FILE" "create" || return 1
-    verify_file_path "$BACKUP_LOG_FILE" "create" || return 1
     verify_file_path "$SUDO_ASKPASS_PATH" || return 1
     verify_file_path "$RUN_LOG" "create" || return 1
     verify_file_path "$ERROR_LOG" "create" || return 1
@@ -1482,7 +1476,7 @@ handle_error() {
     log_message red "Error in function '${func_name}': ${err}"
 
     # Optionally, write the error to a specific error log file
-    echo "Error in function '${func_name}': ${err}" >>"$LOCAL_UPDATE_ERROR"
+    echo "Error in function '${func_name}': ${err}" >>"$BACKUP_LOG_FILE"
 
     # Perform additional actions if needed, such as:
     # - Sending a notification
@@ -1561,9 +1555,6 @@ validate_remote_environment() {
     fi
 
     # Verify and create necessary directories and files
-    verify_and_create_directory "$BACKUP_LOG_DIR" || return 1
-    verify_file_path "$LOG_FILE" "create" || return 1
-    verify_file_path "$BACKUP_LOG_FILE" "create" || return 1
     verify_file_path "$SUDO_ASKPASS_PATH" || return 1
     verify_file_path "$RUN_LOG" "create" || return 1
     verify_file_path "$ERROR_LOG" "create" || return 1
