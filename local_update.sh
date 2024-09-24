@@ -586,7 +586,7 @@ validate_variablesv2
 # Function to make Remote_Script3
 create_remote_script3() {
     local available_space
-    available_space=$(df -P "$(dirname "$REMOTE_SCRIPT_LOCAL2")" | awk 'NR==2 {print $4}')
+    available_space=$(df -P "$(dirname "$REMOTE_SCRIPT_LOCAL3")" | awk 'NR==2 {print $4}')
 
     # Check if available space is below a threshold (e.g., 1024 MB)
     if [[ $available_space -lt 1024 ]]; then
@@ -601,7 +601,7 @@ create_remote_script3() {
 VERSION="1.2 (AgeorgeBackup)"
 LOG_FILE="/tmp/remote_update.log"
 BACKUP_LOG_DIR="$HOME/Desktop"
-BACKUP_LOG_FILE="$BACKUP_LOG_DIR/remote_update.log"
+BACKUP_LOG_FILE="$BACKUP_LOG_DIR/remote_update3.log"
 SUDO_ASKPASS_PATH="$HOME/sudo_askpass.sh"
 RUN_LOG="/tmp/remote_run_log.txt"
 ERROR_LOG="/tmp/remote_error_log.txt"
@@ -653,7 +653,7 @@ handle_error() {
     log_message red "Error in function '${func_name}': ${err}"
 
     # Optionally, write the error to a specific error log file
-    echo "Error in function '${func_name}': ${err}" >>"$LOCAL_UPDATE_ERROR"
+    echo "Error in function '${func_name}': ${err}" >>"$BACKUP_LOG_FILE"
 
     # Perform additional actions if needed, such as:
     # - Sending a notification
@@ -910,6 +910,8 @@ main() {
 # Run main function
 main
 
+#Function to copy log to desktop for retrieval
+
 
 EOF
 
@@ -940,7 +942,7 @@ create_remote_script2() {
 VERSION="1.2 (PiHole2)"
 LOG_FILE="/tmp/remote_update.log"
 BACKUP_LOG_DIR="$HOME/Desktop"
-BACKUP_LOG_FILE="$BACKUP_LOG_DIR/remote_update.log"
+BACKUP_LOG_FILE="$BACKUP_LOG_DIR/remote_update2.log"
 SUDO_ASKPASS_PATH="$HOME/sudo_askpass.sh"
 RUN_LOG="/tmp/remote_run_log.txt"
 ERROR_LOG="/tmp/remote_error_log.txt"
@@ -1249,6 +1251,9 @@ main() {
 # Run main function
 main
 
+#Function to copy log to desktop for retrieval
+
+
 EOF
 
     # Set execute permissions on the remote script
@@ -1263,7 +1268,7 @@ EOF
 # Function to make Remote_Script
 create_remote_script() {
     local available_space
-    available_space=$(df -P "$(dirname "$REMOTE_SCRIPT_LOCAL2")" | awk 'NR==2 {print $4}')
+    available_space=$(df -P "$(dirname "$REMOTE_SCRIPT_LOCAL")" | awk 'NR==2 {print $4}')
 
     # Check if available space is below a threshold (e.g., 1024 MB)
     if [[ $available_space -lt 1024 ]]; then
@@ -1618,6 +1623,8 @@ main() {
 
 # Run main function
 main
+
+#Function to copy log to desktop for retrieval
 
 
 EOF
@@ -2324,12 +2331,15 @@ logs=(
     "/var/log/fail2ban.log:Fail2Ban Log:remote1"
     "/var/log/kern.log:Kernel Log:remote1"
     "/var/log/syslog:System Log:remote1"
+    "/tmp/remote_update.log:Remote Update:remote1"
     "/var/log/fail2ban.log:Fail2Ban Log:remote2"
     "/var/log/kern.log:Kernel Log:remote2"
     "/var/log/syslog:System Log:remote2"
+    "/tmp/remote_update.log:Remote Update:remote2"
     "/var/log/fail2ban.log:Fail2Ban Log:remote3"
     "/var/log/kern.log:Kernel Log:remote3"
     "/var/log/syslog:System Log:remote3"
+    "/tmp/remote_update.log:Remote Update:remote3"
 )
 
 # Function to get log information
