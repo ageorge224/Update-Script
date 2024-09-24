@@ -164,6 +164,7 @@ print_header() {
     local description="A script for performing local and remote system updates with backup functionality"
     local date
     date=$(date +"%Y-%m-%d")
+
     calc_max_width() {
         local max_width=80
         local temp_width
@@ -195,11 +196,11 @@ print_header() {
     local content_width=$((width - 2)) # Subtract 2 for the left and right borders
 
     print_line() {
-        printf "\e[36m%s\e[0m\n" "$(printf "%${width}s" | tr ' ' '-')" # Directly use the ─ character
+        printf "\e[36m%s\e[0m\n" "$(printf "%${width}s" | tr ' ' '-')"
     }
 
     print_content_line() {
-        printf "\e[36m│\e[0m %-${content_width}s \e[36m│\e[0m\n" "$1"
+        printf "\e[36m|\e[0m %-${content_width}s \e[36m|\e[0m\n" "$1"
     }
 
     print_wrapped_text() {
@@ -220,8 +221,8 @@ print_header() {
         [[ -n $line ]] && print_content_line "$(printf "%-${#prefix}s%s" "$prefix" "$line")"
     }
 
-    echo -e "\e[36m╭$(printf "%${width}s" | tr ' ' '-')╮\e[0m" # Use ─ directly here
-    printf "\e[36m│\e[1;33m %-${content_width}s \e[36m│\e[0m\n" "$script_name v$version"
+    echo -e "\e[36m+$(printf "%${width}s" | tr ' ' '-')+\e[0m"
+    printf "\e[36m|\e[1;33m %-${content_width}s \e[36m|\e[0m\n" "$script_name v$version"
     print_line
     print_content_line "$(printf "%-15s\e[32m%s" "Date:" "$date")"
     print_content_line "$(printf "%-15s\e[32m%s" "Author:" "$author")"
@@ -240,7 +241,7 @@ print_header() {
         value="${!var}"
         print_content_line "$(printf "%-20s \e[32m%s" "$var:" "$value")"
     done
-    echo -e "\e[36m╰$(printf "%${width}s" | tr ' ' '-')╯\e[0m" # Use ─ directly here
+    echo -e "\e[36m+$(printf "%${width}s" | tr ' ' '-')+\e[0m"
     echo
 }
 
@@ -272,6 +273,93 @@ validate_log_files() {
         done
     } || handle_error "validate_log_files" "$?"
 }
+
+# Set this to false to suppress non-error output
+SHOW_OUTPUT=false
+
+# Function to conditionally echo messages
+conditional_echo() {
+    if $SHOW_OUTPUT; then
+        echo "$@"
+    fi
+}
+# shellcheck disable=SC2029
+# Function to check file existence, create if needed, and set permissions
+check_and_create_remote_file() {
+    local user_host="$1"
+    local remote_path="$2"
+    local log_file="$3"
+
+    ssh "$user_host" "
+        set -o errexit
+        set -o noglob
+        set -eE
+
+        trap 'echo \"Error occurred in remote operation on $user_host\"; exit 1' ERR
+
+        # Check if file exists
+        if [ ! -f \"$remote_path\" ]; then
+            # Create the file if it doesn't exist
+            mkdir -p \$(dirname \"$remote_path\") && touch \"$remote_path\" || { echo \"Failed to create file: $remote_path\"; exit 1; }
+            echo \"Created file: $remote_path\"
+        else
+            echo \"File already exists: $remote_path\"
+        fi
+
+        # Set permissions (adjust as needed)
+        chmod 644 \"$remote_path\" || { echo \"Failed to set permissions for: $remote_path\"; exit 1; }
+        echo \"Set permissions for: $remote_path\"
+
+        # Ensure the directory for the log file exists
+        mkdir -p \$(dirname \"$log_file\") || { echo \"Failed to create directory for log file\"; exit 1; }
+
+        # Check if log file exists, create if it doesn't, and set permissions
+        if [ ! -f \"$log_file\" ]; then
+            touch \"$log_file\" || { echo \"Failed to create log file: $log_file\"; exit 1; }
+            echo \"Created log file: $log_file\"
+        else
+            echo \"Log file already exists: $log_file\"
+        fi
+        chmod 644 \"$log_file\" || { echo \"Failed to set permissions for log file: $log_file\"; exit 1; }
+        echo \"Set permissions for log file: $log_file\"
+    " || return 1
+
+    conditional_echo "Successfully processed $remote_path and $log_file on $user_host"
+}
+
+# Main function to process all remote files
+process_remote_files() {
+    local -a remote_configs=(
+        "ageorge@192.168.1.248 /tmp/remote_update /home/ageorge/Desktop/remote_update.log"
+        "ageorge@192.168.1.145 /tmp/remote_update /home/ageorge/Desktop/remote_update2.log"
+        "ageorge@192.168.1.238 /tmp/remote_update /home/ageorge/Desktop/remote_update3.log"
+    )
+
+    for config in "${remote_configs[@]}"; do
+        read -r user_host remote_path log_file <<<"$config"
+
+        local retry_count=0
+        local max_retries=3
+
+        while [[ $retry_count -lt $max_retries ]]; do
+            if check_and_create_remote_file "$user_host" "$remote_path" "$log_file"; then
+                conditional_echo "Successfully processed $remote_path and $log_file on $user_host"
+                break
+            else
+                handle_error "check_and_create_remote_file" "Failed to process $remote_path on $user_host"
+                ((retry_count++))
+            fi
+        done
+    done
+}
+
+# Trap errors and signals
+trap 'handle_error "$BASH_COMMAND" "$?"' ERR
+trap 'echo "Script terminated prematurely" >> "$RUN_LOG"; exit 1' SIGINT SIGTERM
+trap 'handle_error "SIGPIPE received" "$?"' SIGPIPE
+
+# Call the main function
+process_remote_files
 
 # Function to validate SSH connection
 validate_ssh_connection() {
@@ -910,7 +998,37 @@ main() {
 # Run main function
 main
 
-#Function to copy log to desktop for retrieval
+# Function to execute rsync with error handling
+rsync_with_error_handling() {
+  local source="$1"
+  local destination="$2"
+
+  # Execute rsync with -avz options and capture output
+  rsync -avz "$source" "$destination" &> /tmp/rsync_output
+
+  # Check for errors (non-zero exit code)
+  if [[ $? -ne 0 ]]; then
+    # Read captured output (assuming UTF-8 encoding)
+    local error_message=$(cat /tmp/rsync_output | iconv -f UTF-8)
+    echo "rsync command failed: $error_message"
+    return 1  # Indicate error
+  fi
+
+  # Success message
+  echo "rsync command successful: $source -> $destination"
+  return 0  # Indicate success
+}
+
+source_path="/tmp/remote_update.log"
+destination_path="/home/ageorge/Desktop/remote_update3.log"
+
+rsync_with_error_handling "$source_path" "$destination_path"
+
+if [[ $? -eq 0 ]]; then
+  echo "Files synced successfully."
+else
+  echo "Sync failed. Please check the output for details."
+fi
 
 
 EOF
@@ -1251,7 +1369,37 @@ main() {
 # Run main function
 main
 
-#Function to copy log to desktop for retrieval
+# Function to execute rsync with error handling
+rsync_with_error_handling() {
+  local source="$1"
+  local destination="$2"
+
+  # Execute rsync with -avz options and capture output
+  rsync -avz "$source" "$destination" &> /tmp/rsync_output
+
+  # Check for errors (non-zero exit code)
+  if [[ $? -ne 0 ]]; then
+    # Read captured output (assuming UTF-8 encoding)
+    local error_message=$(cat /tmp/rsync_output | iconv -f UTF-8)
+    echo "rsync command failed: $error_message"
+    return 1  # Indicate error
+  fi
+
+  # Success message
+  echo "rsync command successful: $source -> $destination"
+  return 0  # Indicate success
+}
+
+source_path="/tmp/remote_update.log"
+destination_path="/home/ageorge/Desktop/remote_update2.log"
+
+rsync_with_error_handling "$source_path" "$destination_path"
+
+if [[ $? -eq 0 ]]; then
+  echo "Files synced successfully."
+else
+  echo "Sync failed. Please check the output for details."
+fi
 
 
 EOF
@@ -1624,7 +1772,37 @@ main() {
 # Run main function
 main
 
-#Function to copy log to desktop for retrieval
+# Function to execute rsync with error handling
+rsync_with_error_handling() {
+  local source="$1"
+  local destination="$2"
+
+  # Execute rsync with -avz options and capture output
+  rsync -avz "$source" "$destination" &> /tmp/rsync_output
+
+  # Check for errors (non-zero exit code)
+  if [[ $? -ne 0 ]]; then
+    # Read captured output (assuming UTF-8 encoding)
+    local error_message=$(cat /tmp/rsync_output | iconv -f UTF-8)
+    echo "rsync command failed: $error_message"
+    return 1  # Indicate error
+  fi
+
+  # Success message
+  echo "rsync command successful: $source -> $destination"
+  return 0  # Indicate success
+}
+
+source_path="/tmp/remote_update.log"
+destination_path="/home/ageorge/Desktop/remote_update.log"
+
+rsync_with_error_handling "$source_path" "$destination_path"
+
+if [[ $? -eq 0 ]]; then
+  echo "Files synced successfully."
+else
+  echo "Sync failed. Please check the output for details."
+fi
 
 
 EOF
