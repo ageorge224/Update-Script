@@ -2120,6 +2120,7 @@ check_sudo_permissions() {
     } || handle_error "check_sudo_permissions" "$?"
 }
 
+# shellcheck disable=SC2317
 # Function to perform local update
 perform_local_update() {
     check_sudo_permissions
@@ -2132,7 +2133,6 @@ perform_local_update() {
     if [ $exit_code -ne 0 ]; then
         log_message red "Error: Failed to update package list"
         handle_error "perform_local_update" "$exit_code"
-        # shellcheck disable=SC2317
         return 1
     fi
     log_message green "Package list updated successfully."
@@ -2145,7 +2145,6 @@ perform_local_update() {
     if [ $exit_code -ne 0 ]; then
         log_message red "Error: Failed to upgrade packages"
         handle_error "perform_local_update" "$exit_code"
-        # shellcheck disable=SC2317
         return 1
     fi
     log_message green "Packages upgraded successfully."
@@ -2158,7 +2157,6 @@ perform_local_update() {
     if [ $exit_code -ne 0 ]; then
         log_message red "Error: Failed to perform distribution upgrade"
         handle_error "perform_local_update" "$exit_code"
-        # shellcheck disable=SC2317
         return 1
     fi
     log_message green "Distribution upgrade performed successfully."
@@ -2171,7 +2169,6 @@ perform_local_update() {
     if [ $exit_code -ne 0 ]; then
         log_message red "Error: Failed to remove unnecessary packages"
         handle_error "perform_local_update" "$exit_code"
-        # shellcheck disable=SC2317
         return 1
     fi
     log_message green "Unnecessary packages removed successfully."
@@ -2184,7 +2181,6 @@ perform_local_update() {
     if [ $exit_code -ne 0 ]; then
         log_message red "Error: Failed to clean up"
         handle_error "perform_local_update" "$exit_code"
-        # shellcheck disable=SC2317
         return 1
     fi
     log_message green "Cleanup completed successfully."
@@ -2239,6 +2235,7 @@ verify_checksum() {
 #echo
 #verify_checksum
 
+# shellcheck disable=SC2317
 # shellcheck disable=SC2029
 # Function to execute remote script and retrieve log
 execute_remote_script() {
@@ -2258,7 +2255,6 @@ execute_remote_script() {
     else
         if ! ssh "$remote_user@$remote_host" "bash \"$remote_script_remote\""; then
             handle_error "execute_remote_script" "Failed to execute $script_name script. Check permissions and script content."
-            # shellcheck disable=SC2317
             return 1
         fi
     fi
@@ -2274,7 +2270,6 @@ execute_remote_script() {
             log_message cyan "Remote log backed up at $backup_log"
         else
             handle_error "execute_remote_script" "Failed to retrieve log file from $script_name"
-            # shellcheck disable=SC2317
             return 1
         fi
     fi
@@ -2291,7 +2286,7 @@ execute_remote_script "$REMOTE_USER" "$REMOTE_HOST3" "$REMOTE_SCRIPT_REMOTE3" "$
 
 # Final log and backup
 echo
-log_message green "Backing up Local logs"
+log_message magenta "Backing up Local logs"
 echo
 cp "$LOG_FILE" "$BACKUP_DIR/$(basename $LOG_FILE)_$(date +%Y%m%d%H%M%S).log"
 cp "$LOG_FILE" "$BACKUP_LOG_FILE"
