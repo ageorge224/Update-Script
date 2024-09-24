@@ -49,7 +49,7 @@ trap 'echo "Script terminated prematurely" >> "$RUN_LOG"; exit 1' SIGINT SIGTERM
 trap 'handle_error "SIGPIPE received" "$?"' SIGPIPE
 
 # Variables
-VERSION="1.2.76"
+VERSION="1.2.78"
 SCRIPT_NAME="local_update.sh"
 REMOTE_USER="ageorge"
 REMOTE_HOST="192.168.1.248"
@@ -1812,67 +1812,143 @@ create_remote_script
 create_remote_script2
 create_remote_script3
 
+# Define the correct checksum file names for each script
+LOCAL_CHECKSUM_FILE_REMOTE1="remote_update.sh.md5"
+LOCAL_CHECKSUM_FILE_REMOTE2="remote_update2.sh.md5"
+LOCAL_CHECKSUM_FILE_REMOTE3="remote_update3.sh.md5"
+
+# Function to generate local checksums with correct file naming
+generate_local_checksums() {
+    echo "Generating local checksums..."
+
+    if ! md5sum "$REMOTE_SCRIPT_LOCAL" >"$LOCAL_CHECKSUM_FILE_REMOTE1"; then
+        log_message red "Failed to generate local checksum for $REMOTE_SCRIPT_LOCAL"
+        return 1
+    fi
+
+    if ! md5sum "$REMOTE_SCRIPT_LOCAL2" >"$LOCAL_CHECKSUM_FILE_REMOTE2"; then
+        log_message red "Failed to generate local checksum for $REMOTE_SCRIPT_LOCAL2"
+        return 1
+    fi
+
+    if ! md5sum "$REMOTE_SCRIPT_LOCAL3" >"$LOCAL_CHECKSUM_FILE_REMOTE3"; then
+        log_message red "Failed to generate local checksum for $REMOTE_SCRIPT_LOCAL3"
+        return 1
+    fi
+
+    log_message green "Local checksums generated successfully."
+}
 # shellcheck disable=SC2029
-# Function to copy script to remote and set permissions
+# Function to copy script to remote, set permissions, and generate remote checksum
 copy_local_to_remote() {
     if check_dry_run_mode; then
         echo "scp $REMOTE_SCRIPT_LOCAL $REMOTE_USER@$REMOTE_HOST:$REMOTE_SCRIPT_REMOTE"
         echo "ssh $REMOTE_USER@$REMOTE_HOST 'chmod +x $REMOTE_SCRIPT_REMOTE'"
-        echo "ssh $REMOTE_USER@$REMOTE_HOST 'md5sum $REMOTE_SCRIPT_REMOTE'"
+        echo "ssh $REMOTE_USER@$REMOTE_HOST 'md5sum $REMOTE_SCRIPT_REMOTE > /tmp/remote_update.sh.md5'"
     else
+        echo "Copying and generating checksum for remote_update.sh on $REMOTE_HOST..."
         if ! scp "$REMOTE_SCRIPT_LOCAL" "$REMOTE_USER@$REMOTE_HOST:$REMOTE_SCRIPT_REMOTE"; then
             handle_error "copy_local_to_remote" "Failed to copy script to remote host"
         fi
         if ! ssh "$REMOTE_USER@$REMOTE_HOST" "chmod +x '$REMOTE_SCRIPT_REMOTE'"; then
             handle_error "copy_local_to_remote" "Failed to set execute permissions on remote script"
         fi
-        if ! ssh "$REMOTE_USER@$REMOTE_HOST" "md5sum '$REMOTE_SCRIPT_REMOTE'" >"${CHECKSUM_FILE}.$(basename "$REMOTE_SCRIPT_REMOTE")"; then
-            handle_error "copy_local_to_remote" "Failed to generate checksum on remote host"
+        if ! ssh "$REMOTE_USER@$REMOTE_HOST" "md5sum '$REMOTE_SCRIPT_REMOTE' > /tmp/remote_update.sh.md5"; then
+            handle_error "copy_local_to_remote" "Failed to generate remote checksum"
         fi
     fi
 }
 
-# shellcheck disable=SC2029
 copy_local_to_remote2() {
     if check_dry_run_mode; then
         echo "scp $REMOTE_SCRIPT_LOCAL2 $REMOTE_USER@$REMOTE_HOST2:$REMOTE_SCRIPT_REMOTE2"
         echo "ssh $REMOTE_USER@$REMOTE_HOST2 'chmod +x $REMOTE_SCRIPT_REMOTE2'"
-        echo "ssh $REMOTE_USER@$REMOTE_HOST2 'md5sum $REMOTE_SCRIPT_REMOTE2'"
+        echo "ssh $REMOTE_USER@$REMOTE_HOST2 'md5sum $REMOTE_SCRIPT_REMOTE2 > /tmp/remote_update2.sh.md5'"
     else
+        echo "Copying and generating checksum for remote_update2.sh on $REMOTE_HOST2..."
         if ! scp "$REMOTE_SCRIPT_LOCAL2" "$REMOTE_USER@$REMOTE_HOST2:$REMOTE_SCRIPT_REMOTE2"; then
             handle_error "copy_local_to_remote2" "Failed to copy script to remote host2"
         fi
         if ! ssh "$REMOTE_USER@$REMOTE_HOST2" "chmod +x '$REMOTE_SCRIPT_REMOTE2'"; then
-            handle_error "copy_local_to_remote2" "Failed to set execute permissions on remote script"
+            handle_error "copy_local_to_remote2" "Failed to set execute permissions on remote script2"
         fi
-        if ! ssh "$REMOTE_USER@$REMOTE_HOST2" "md5sum '$REMOTE_SCRIPT_REMOTE2'" >"${CHECKSUM_FILE}.$(basename "$REMOTE_SCRIPT_REMOTE2")"; then
-            handle_error "copy_local_to_remote2" "Failed to generate checksum on remote host2"
+        if ! ssh "$REMOTE_USER@$REMOTE_HOST2" "md5sum '$REMOTE_SCRIPT_REMOTE2' > /tmp/remote_update2.sh.md5"; then
+            echo "Debug: Failed to generate checksum on $REMOTE_HOST2 for $REMOTE_SCRIPT_REMOTE2"
+            handle_error "copy_local_to_remote2" "Failed to generate remote checksum on host2"
+        else
+            echo "Checksum generated for remote_update2.sh on $REMOTE_HOST2"
         fi
     fi
 }
-# shellcheck disable=SC2029
+
 copy_local_to_remote3() {
     if check_dry_run_mode; then
         echo "scp $REMOTE_SCRIPT_LOCAL3 $REMOTE_USER@$REMOTE_HOST3:$REMOTE_SCRIPT_REMOTE3"
         echo "ssh $REMOTE_USER@$REMOTE_HOST3 'chmod +x $REMOTE_SCRIPT_REMOTE3'"
-        echo "ssh $REMOTE_USER@$REMOTE_HOST3 'md5sum $REMOTE_SCRIPT_REMOTE3'"
+        echo "ssh $REMOTE_USER@$REMOTE_HOST3 'md5sum $REMOTE_SCRIPT_REMOTE3 > /tmp/remote_update3.sh.md5'"
     else
+        echo "Copying and generating checksum for remote_update3.sh on $REMOTE_HOST3..."
         if ! scp "$REMOTE_SCRIPT_LOCAL3" "$REMOTE_USER@$REMOTE_HOST3:$REMOTE_SCRIPT_REMOTE3"; then
             handle_error "copy_local_to_remote3" "Failed to copy script to remote host3"
         fi
         if ! ssh "$REMOTE_USER@$REMOTE_HOST3" "chmod +x '$REMOTE_SCRIPT_REMOTE3'"; then
             handle_error "copy_local_to_remote3" "Failed to set execute permissions on remote script3"
         fi
-        if ! ssh "$REMOTE_USER@$REMOTE_HOST3" "md5sum '$REMOTE_SCRIPT_REMOTE3'" >"${CHECKSUM_FILE}.$(basename "$REMOTE_SCRIPT_REMOTE3")"; then
-            handle_error "copy_local_to_remote3" "Failed to generate checksum on remote host3"
+        if ! ssh "$REMOTE_USER@$REMOTE_HOST3" "md5sum '$REMOTE_SCRIPT_REMOTE3' > /tmp/remote_update3.sh.md5"; then
+            echo "Debug: Failed to generate checksum on $REMOTE_HOST3 for $REMOTE_SCRIPT_REMOTE3"
+            handle_error "copy_local_to_remote3" "Failed to generate remote checksum on host3"
+        else
+            echo "Checksum generated for remote_update3.sh on $REMOTE_HOST3"
         fi
     fi
 }
 
-#Invoke to pass script to remote
+# Function to verify remote checksums
+verify_checksums() {
+    log_message light_blue "Verifying script checksums on remote servers..."
+
+    # Checksum verification for remote_update.sh
+    if scp "$REMOTE_USER@$REMOTE_HOST:/tmp/remote_update.sh.md5" .; then
+        if diff -q <(md5sum $REMOTE_SCRIPT_LOCAL) remote_update.sh.md5; then
+            log_message light_magenta"Checksum verification successful for remote_update.sh.md5: Checksums match."
+        else
+            log_message red "Checksum verification failed for remote_update.sh.md5: Checksums do not match."
+        fi
+    else
+        log_message red "Local file not found: remote_update.sh.md5"
+    fi
+
+    # Checksum verification for remote_update2.sh
+    if scp "$REMOTE_USER@$REMOTE_HOST2:/tmp/remote_update2.sh.md5" .; then
+        if diff -q <(md5sum $REMOTE_SCRIPT_LOCAL2) remote_update2.sh.md5; then
+            log_message light_magenta "Checksum verification successful for remote_update2.sh.md5: Checksums match."
+        else
+            log_message red "Checksum verification failed for remote_update2.sh.md5: Checksums do not match."
+        fi
+    else
+        log_message red "Local file not found: remote_update2.sh.md5"
+        ssh "$REMOTE_USER@$REMOTE_HOST2" "ls -l /tmp/remote_update2.sh.md5"
+    fi
+
+    # Checksum verification for remote_update3.sh
+    if scp "$REMOTE_USER@$REMOTE_HOST3:/tmp/remote_update3.sh.md5" .; then
+        if diff -q <(md5sum $REMOTE_SCRIPT_LOCAL3) remote_update3.sh.md5; then
+            log_message light_magenta "Checksum verification successful for remote_update3.sh.md5: Checksums match."
+        else
+            log_message red "Checksum verification failed for remote_update3.sh.md5: Checksums do not match."
+        fi
+    else
+        log_message red "Local file not found: remote_update3.sh.md5"
+        ssh "$REMOTE_USER@$REMOTE_HOST3" "ls -l /tmp/remote_update3.sh.md5"
+    fi
+}
+
+# Main execution steps
+generate_local_checksums
 copy_local_to_remote
 copy_local_to_remote2
 copy_local_to_remote3
+verify_checksums
 
 # shellcheck disable=SC2029
 # Log Information Function
@@ -2197,53 +2273,6 @@ if ! perform_local_update; then
 fi
 
 log_message cyan "Remote script completed."
-
-# Function to verify checksum for multiple files
-# Function to verify checksum for multiple files
-verify_checksum() {
-    local exit_code=0
-    local checksum_files=(
-        "${CHECKSUM_FILE}.$(basename "$REMOTE_SCRIPT_REMOTE")"
-        "${CHECKSUM_FILE}.$(basename "$REMOTE_SCRIPT_REMOTE2")"
-        "${CHECKSUM_FILE}.$(basename "$REMOTE_SCRIPT_REMOTE3")"
-    )
-
-    for checksum_file in "${checksum_files[@]}"; do
-        if [ -f "$checksum_file" ] && [ -s "$checksum_file" ]; then
-            # Extract the local file name from the checksum file name
-            local_file=$(basename "$checksum_file" | cut -d'.' -f2-)
-
-            # Fetch the remote checksum using ssh
-            remote_checksum=$(ssh "$REMOTE_USER@$REMOTE_HOST" "sha256sum '$local_file'" | awk '{print $1}')
-
-            # Calculate the local checksum
-            local_checksum=$(sha256sum "$local_file" | awk '{print $1}')
-
-            if [ "$remote_checksum" = "$local_checksum" ]; then
-                log_message green "Checksum verification successful for $local_file: Checksums match."
-            else
-                log_message red "Checksum verification failed for $local_file: Checksums do not match."
-                exit_code=1
-            fi
-        else
-            log_message red "Checksum file not found or empty: $checksum_file"
-            exit_code=1
-        fi
-    done
-
-    if [ "$exit_code" -eq 0 ]; then
-        log_message green "Overall checksum verification successful: All checksums match."
-    else
-        log_message red "Checksum verification failed: Please check the remote script files."
-        exit 1
-    fi
-}
-
-#Verify the checksum
-echo
-log_message blue "$(printf '\e[3mVerifying script checksums on remote servers...\e[0m')"
-echo
-verify_checksum
 
 # shellcheck disable=SC2317
 # shellcheck disable=SC2029
