@@ -49,7 +49,7 @@ trap 'echo "Script terminated prematurely" >> "$RUN_LOG"; exit 1' SIGINT SIGTERM
 trap 'handle_error "SIGPIPE received" "$?"' SIGPIPE
 
 # Variables
-VERSION="1.2.75"
+VERSION="1.2.76"
 SCRIPT_NAME="local_update.sh"
 REMOTE_USER="ageorge"
 REMOTE_HOST="192.168.1.248"
@@ -2199,6 +2199,7 @@ fi
 log_message cyan "Remote script completed."
 
 # Function to verify checksum for multiple files
+# Function to verify checksum for multiple files
 verify_checksum() {
     local exit_code=0
     local checksum_files=(
@@ -2206,34 +2207,43 @@ verify_checksum() {
         "${CHECKSUM_FILE}.$(basename "$REMOTE_SCRIPT_REMOTE2")"
         "${CHECKSUM_FILE}.$(basename "$REMOTE_SCRIPT_REMOTE3")"
     )
+
     for checksum_file in "${checksum_files[@]}"; do
-        if [ -f "$checksum_file" ]; then
-            remote_checksum=$(awk '{print $1}' "$checksum_file")
-            local_file=$(basename "$checksum_file" .md5) # Correct extraction of the local file name
-            local_checksum=$(md5sum "$local_file" | awk '{print $1}')
+        if [ -f "$checksum_file" ] && [ -s "$checksum_file" ]; then
+            # Extract the local file name from the checksum file name
+            local_file=$(basename "$checksum_file" | cut -d'.' -f2-)
+
+            # Fetch the remote checksum using ssh
+            remote_checksum=$(ssh "$REMOTE_USER@$REMOTE_HOST" "sha256sum '$local_file'" | awk '{print $1}')
+
+            # Calculate the local checksum
+            local_checksum=$(sha256sum "$local_file" | awk '{print $1}')
 
             if [ "$remote_checksum" = "$local_checksum" ]; then
                 log_message green "Checksum verification successful for $local_file: Checksums match."
             else
                 log_message red "Checksum verification failed for $local_file: Checksums do not match."
-                exit 1
+                exit_code=1
             fi
         else
-            log_message red "Checksum file not found: $checksum_file"
-            exit 1
+            log_message red "Checksum file not found or empty: $checksum_file"
+            exit_code=1
         fi
     done
 
     if [ "$exit_code" -eq 0 ]; then
         log_message green "Overall checksum verification successful: All checksums match."
+    else
+        log_message red "Checksum verification failed: Please check the remote script files."
+        exit 1
     fi
 }
 
 #Verify the checksum
-#echo
-#log_message blue "$(printf '\e[3mVerifying script checksums on remote servers...\e[0m')"
-#echo
-#verify_checksum
+echo
+log_message blue "$(printf '\e[3mVerifying script checksums on remote servers...\e[0m')"
+echo
+verify_checksum
 
 # shellcheck disable=SC2317
 # shellcheck disable=SC2029
@@ -2316,24 +2326,19 @@ update_changelog() {
     local changelog_file="$1"
     local main_script="$2"
     local current_version="$3"
-
     # Check if changelog file, main script, and version are provided
     if [[ -z "$changelog_file" || -z "$main_script" || -z "$current_version" ]]; then
         handle_error "update_changelog" "Changelog file, main script, or version is missing"
         return 1
     fi
-
     if [[ ! -f "$changelog_file" ]]; then
         handle_error "update_changelog" "Changelog file does not exist"
         return 1
     fi
-
     echo
     log_message blue "Checking for new version..."
     echo
-
     LAST_LOGGED_VERSION=$(grep -oP '(?<=Script version )\S+' "$changelog_file" | tail -1)
-
     # Check for changes in the main script
     if ! git diff --quiet "$main_script"; then
         echo
@@ -2343,14 +2348,11 @@ update_changelog() {
         echo
         log_message green "Enter new version (or press Enter to keep current version):"
         read -rp "$(tput setaf 2)> $(tput sgr0)" NEW_VERSION
-
         # If no new version is entered, keep the current version
         NEW_VERSION=${NEW_VERSION:-$current_version}
-
         echo
         log_message green "Enter changelog details:"
         read -rp "$(tput setaf 2)> $(tput sgr0)" CHANGE_DETAILS
-
         # Update the VERSION variable in the main script
         if [[ "$NEW_VERSION" != "$current_version" ]]; then
             if ! sed -i "s/VERSION=\"$current_version\"/VERSION=\"$NEW_VERSION\"/" "$main_script"; then
@@ -2359,14 +2361,14 @@ update_changelog() {
             fi
             log_message blue "Updated script version to $NEW_VERSION"
         fi
-
         echo
         log_message blue "Updating changelog..."
         echo
-        if ! {
-            echo "[$(date +"%Y-%m-%d %H:%M:%S")] Script version $NEW_VERSION" >>"$changelog_file"
-            echo "- $CHANGE_DETAILS" >>"$changelog_file"
-        }; then
+        if ! echo "[$(date +"%Y-%m-%d %H:%M:%S")] Script version $NEW_VERSION" >>"$changelog_file"; then
+            handle_error "update_changelog" "Failed to update changelog"
+            return 1
+        fi
+        if ! echo "- $CHANGE_DETAILS" >>"$changelog_file"; then
             handle_error "update_changelog" "Failed to update changelog"
             return 1
         fi
@@ -2376,10 +2378,11 @@ update_changelog() {
         log_message blue "Updating changelog for version $current_version..."
         echo
         # Append the new version and a default log message
-        if ! {
-            echo "[$(date +"%Y-%m-%d %H:%M:%S")] Script version $current_version" >>"$changelog_file"
-            echo "- Log Scanning updated." >>"$changelog_file"
-        }; then
+        if ! echo "[$(date +"%Y-%m-%d %H:%M:%S")] Script version $current_version" >>"$changelog_file"; then
+            handle_error "update_changelog" "Failed to update changelog"
+            return 1
+        fi
+        if ! echo "- Log Scanning updated." >>"$changelog_file"; then
             handle_error "update_changelog" "Failed to update changelog"
             return 1
         fi
@@ -2390,7 +2393,6 @@ update_changelog() {
         echo
     fi
 }
-
 # Call the function with the existing VERSION variable
 update_changelog "$CHANGELOG_FILE" "$SCRIPT_NAME" "$VERSION"
 
