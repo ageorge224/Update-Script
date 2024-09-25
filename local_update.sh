@@ -1813,9 +1813,9 @@ create_remote_script2
 create_remote_script3
 
 # Define the correct checksum file names for each script
-LOCAL_CHECKSUM_FILE_REMOTE1="remote_update.sh.md5"
-LOCAL_CHECKSUM_FILE_REMOTE2="remote_update2.sh.md5"
-LOCAL_CHECKSUM_FILE_REMOTE3="remote_update3.sh.md5"
+LOCAL_CHECKSUM_FILE_REMOTE1="/tmp/remote_update.sh.md5"
+LOCAL_CHECKSUM_FILE_REMOTE2="/tmp/remote_update2.sh.md5"
+LOCAL_CHECKSUM_FILE_REMOTE3="/tmp/remote_update3.sh.md5"
 
 # Function to generate local checksums with correct file naming
 generate_local_checksums() {
@@ -1838,6 +1838,7 @@ generate_local_checksums() {
 
     log_message green "Local checksums generated successfully."
 }
+
 # shellcheck disable=SC2029
 # Function to copy script to remote, set permissions, and generate remote checksum
 copy_local_to_remote() {
@@ -1858,7 +1859,7 @@ copy_local_to_remote() {
         fi
     fi
 }
-
+# shellcheck disable=SC2029
 copy_local_to_remote2() {
     if check_dry_run_mode; then
         echo "scp $REMOTE_SCRIPT_LOCAL2 $REMOTE_USER@$REMOTE_HOST2:$REMOTE_SCRIPT_REMOTE2"
@@ -1880,7 +1881,7 @@ copy_local_to_remote2() {
         fi
     fi
 }
-
+# shellcheck disable=SC2029
 copy_local_to_remote3() {
     if check_dry_run_mode; then
         echo "scp $REMOTE_SCRIPT_LOCAL3 $REMOTE_USER@$REMOTE_HOST3:$REMOTE_SCRIPT_REMOTE3"
@@ -1902,48 +1903,48 @@ copy_local_to_remote3() {
         fi
     fi
 }
-
+# shellcheck disable=SC2029
 # Function to verify remote checksums
 verify_checksums() {
     log_message light_blue "Verifying script checksums on remote servers..."
 
     # Checksum verification for remote_update.sh
-    if scp "$REMOTE_USER@$REMOTE_HOST:/tmp/remote_update.sh.md5" .; then
-        if diff -q <(md5sum $REMOTE_SCRIPT_LOCAL) remote_update.sh.md5; then
-            log_message light_magenta"Checksum verification successful for remote_update.sh.md5: Checksums match."
+    if scp "$REMOTE_USER@$REMOTE_HOST:/tmp/remote_update.sh.md5" /tmp/; then
+        if diff -q "$LOCAL_CHECKSUM_FILE_REMOTE1" /tmp/remote_update.sh.md5; then
+            log_message light_magenta "Checksum verification successful for remote_update.sh.md5: Checksums match."
         else
             log_message red "Checksum verification failed for remote_update.sh.md5: Checksums do not match."
         fi
     else
-        log_message red "Local file not found: remote_update.sh.md5"
+        log_message red "Failed to retrieve remote checksum file: remote_update.sh.md5"
     fi
 
     # Checksum verification for remote_update2.sh
-    if scp "$REMOTE_USER@$REMOTE_HOST2:/tmp/remote_update2.sh.md5" .; then
-        if diff -q <(md5sum $REMOTE_SCRIPT_LOCAL2) remote_update2.sh.md5; then
+    if scp "$REMOTE_USER@$REMOTE_HOST2:/tmp/remote_update2.sh.md5" /tmp/; then
+        if diff -q "$LOCAL_CHECKSUM_FILE_REMOTE2" /tmp/remote_update2.sh.md5; then
             log_message light_magenta "Checksum verification successful for remote_update2.sh.md5: Checksums match."
         else
             log_message red "Checksum verification failed for remote_update2.sh.md5: Checksums do not match."
         fi
     else
-        log_message red "Local file not found: remote_update2.sh.md5"
+        log_message red "Failed to retrieve remote checksum file: remote_update2.sh.md5"
         ssh "$REMOTE_USER@$REMOTE_HOST2" "ls -l /tmp/remote_update2.sh.md5"
     fi
 
     # Checksum verification for remote_update3.sh
-    if scp "$REMOTE_USER@$REMOTE_HOST3:/tmp/remote_update3.sh.md5" .; then
-        if diff -q <(md5sum $REMOTE_SCRIPT_LOCAL3) remote_update3.sh.md5; then
+    if scp "$REMOTE_USER@$REMOTE_HOST3:/tmp/remote_update3.sh.md5" /tmp/; then
+        if diff -q "$LOCAL_CHECKSUM_FILE_REMOTE3" /tmp/remote_update3.sh.md5; then
             log_message light_magenta "Checksum verification successful for remote_update3.sh.md5: Checksums match."
         else
             log_message red "Checksum verification failed for remote_update3.sh.md5: Checksums do not match."
         fi
     else
-        log_message red "Local file not found: remote_update3.sh.md5"
+        log_message red "Failed to retrieve remote checksum file: remote_update3.sh.md5"
         ssh "$REMOTE_USER@$REMOTE_HOST3" "ls -l /tmp/remote_update3.sh.md5"
     fi
 }
 
-# Main execution steps
+# Main execution steps remain the same
 generate_local_checksums
 copy_local_to_remote
 copy_local_to_remote2
