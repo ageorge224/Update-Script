@@ -6,10 +6,11 @@ set -o errexit # Enable strict error checking
 set -o noglob # Disable filename expansion
 set -eE
 
-# Function to handle errors
+# Function to handle errors with improved retry logic
 handle_error() {
     local func_name="$1"
     local err="$2"
+    local retry_command="$3" # New parameter for the command to retry
     local retry_count=0
     local max_retries=3 # Adjust the maximum retry attempts as needed
 
@@ -19,29 +20,30 @@ handle_error() {
     # Optionally, write the error to a specific error log file
     echo "Error in function '${func_name}': ${err}" >>"$LOCAL_UPDATE_ERROR"
 
-    # Perform additional actions if needed, such as:
-    # - Sending a notification
-    # - Logging more details
-
     # Implement retry logic
     while [[ $retry_count -lt $max_retries ]]; do
-        # Retry the failed operation (adjust the retry logic as needed)
-        if retry_operation; then
-            log_message green "Retried successfully on attempt $retry_count"
+        log_message yellow "Retrying after error... Attempt $((retry_count + 1))/$max_retries"
+
+        # Retry the failed operation
+        if eval "$retry_command"; then
+            log_message green "Retried successfully on attempt $((retry_count + 1))"
             return 0 # Exit the function successfully
         fi
 
-        # Log the retry attempt
-        log_message yellow "Retrying after error... Attempt $retry_count/$max_retries"
-
         # Increase the retry count
         ((retry_count++))
+
+        # Optional: Add a delay between retries (e.g., 5 seconds)
+        sleep 5
     done
 
-    # If all retries fail, exit the script
+    # If all retries fail, log the failure and exit the script
     log_message red "All retries failed. Exiting script."
     exit 1
 }
+
+# Example usage:
+# handle_error "copy_file" "Failed to copy file" "scp $local_file $remote_host:$remote_path"
 
 # Trap errors and signals
 trap 'handle_error "$BASH_COMMAND" "$?"' ERR
@@ -121,10 +123,10 @@ check_dry_run_mode() {
 
 # Function to display usage information
 usage() {
-    echo -e "Usage: $SCRIPT_NAME [OPTIONS]"
-    echo -e "Options:"
-    echo -e "  --dry-run        Simulate the script's execution without making changes"
-    echo -e "  --help           Display this help message"
+    echo "Usage: $0 [OPTIONS]"
+    echo "Options:"
+    echo "  --dry-run    Run in dry-run mode (no actual changes)"
+    echo "  --help       Display this help message"
 }
 
 # Export SUDO_ASKPASS
@@ -134,11 +136,11 @@ export SUDO_ASKPASS="$SUDO_ASKPASS_PATH"
 true >"$RUN_LOG"
 
 # Parse command-line arguments
-while [[ "$1" != "" ]]; do
-    if [[ -z "$1" ]]; then
-        echo "Warning: No argument provided. Skipping..."
-    else
-        case $1 in
+if [[ $# -eq 0 ]]; then
+    echo "No arguments provided. Using default settings."
+else
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
         --dry-run)
             DRY_RUN=true
             ;;
@@ -147,14 +149,21 @@ while [[ "$1" != "" ]]; do
             exit 0
             ;;
         *)
-            echo -e "\e[31mInvalid option: $1\e[0m"
+            echo -e "\e[31mError: Invalid option: $1\e[0m" >&2
             usage
             exit 1
             ;;
         esac
-    fi
-    shift
-done
+        shift
+    done
+fi
+
+# Example of using the parsed arguments
+if [[ "$DRY_RUN" = true ]]; then
+    echo "Running in dry-run mode"
+else
+    echo "Running in normal mode"
+fi
 
 # Header creation and display function
 print_header() {
