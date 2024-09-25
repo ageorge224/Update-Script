@@ -42,16 +42,13 @@ handle_error() {
     exit 1
 }
 
-# Example usage:
-# handle_error "copy_file" "Failed to copy file" "scp $local_file $remote_host:$remote_path"
-
 # Trap errors and signals
 trap 'handle_error "$BASH_COMMAND" "$?"' ERR
 trap 'echo "Script terminated prematurely" >> "$RUN_LOG"; exit 1' SIGINT SIGTERM
 trap 'handle_error "SIGPIPE received" "$?"' SIGPIPE
 
 # Variables
-VERSION="1.2.78"
+VERSION="1.2.79"
 SCRIPT_NAME="local_update.sh"
 REMOTE_USER="ageorge"
 REMOTE_HOST="192.168.1.248"
@@ -361,11 +358,6 @@ process_remote_files() {
         done
     done
 }
-
-# Trap errors and signals
-trap 'handle_error "$BASH_COMMAND" "$?"' ERR
-trap 'echo "Script terminated prematurely" >> "$RUN_LOG"; exit 1' SIGINT SIGTERM
-trap 'handle_error "SIGPIPE received" "$?"' SIGPIPE
 
 # Call the main function
 process_remote_files
@@ -695,6 +687,53 @@ create_remote_script3() {
     cat <<'EOF' >"$REMOTE_SCRIPT_LOCAL3"
 #!/bin/bash
 
+# Enable error trapping
+set -o errexit # Enable strict error checking
+#set -o nounset # Exit if an unset variable is used
+set -o noglob # Disable filename expansion
+set -eE
+
+# Function to handle errors with improved retry logic
+handle_error() {
+    local func_name="$1"
+    local err="$2"
+    local retry_command="$3" # New parameter for the command to retry
+    local retry_count=0
+    local max_retries=3 # Adjust the maximum retry attempts as needed
+
+    # Log the error message
+    log_message red "Error in function '${func_name}': ${err}"
+
+    # Optionally, write the error to a specific error log file
+    echo "Error in function '${func_name}': ${err}" >>"$LOCAL_UPDATE_ERROR"
+
+    # Implement retry logic
+    while [[ $retry_count -lt $max_retries ]]; do
+        log_message yellow "Retrying after error... Attempt $((retry_count + 1))/$max_retries"
+
+        # Retry the failed operation
+        if eval "$retry_command"; then
+            log_message green "Retried successfully on attempt $((retry_count + 1))"
+            return 0 # Exit the function successfully
+        fi
+
+        # Increase the retry count
+        ((retry_count++))
+
+        # Optional: Add a delay between retries (e.g., 5 seconds)
+        sleep 5
+    done
+
+    # If all retries fail, log the failure and exit the script
+    log_message red "All retries failed. Exiting script."
+    exit 1
+}
+
+# Trap errors and signals
+trap 'handle_error "$BASH_COMMAND" "$?"' ERR
+trap 'echo "Script terminated prematurely" >> "$RUN_LOG"; exit 1' SIGINT SIGTERM
+trap 'handle_error "SIGPIPE received" "$?"' SIGPIPE
+
 VERSION="1.2 (AgeorgeBackup)"
 LOG_FILE="/tmp/remote_update.log"
 BACKUP_LOG_DIR="$HOME/Desktop"
@@ -737,33 +776,6 @@ export SUDO_ASKPASS="$SUDO_ASKPASS_PATH"
 # Initialize RUN_LOG and ERROR_LOG
 true >"$RUN_LOG"
 true >"$ERROR_LOG"
-
-# Enable error trapping
-set -e
-
-# Function to handle errors
-handle_error() {
-    local func_name="$1"
-    local err="$2"
-
-    # Log the error message
-    log_message red "Error in function '${func_name}': ${err}"
-
-    # Optionally, write the error to a specific error log file
-    echo "Error in function '${func_name}': ${err}" >>"$BACKUP_LOG_FILE"
-
-    # Perform additional actions if needed, such as:
-    # - Sending a notification
-    # - Retrying the operation
-    # - Logging more details
-
-    # Exit the script
-    exit 1
-}
-
-# Trap errors and signals
-trap 'handle_error "$BASH_COMMAND" "$?"' ERR
-trap 'echo "Script terminated prematurely" >> "$RUN_LOG"; exit 1' SIGINT SIGTERM
 
 # Validation functions
 validate_ip() {
@@ -1063,6 +1075,53 @@ create_remote_script2() {
     cat <<'EOF' >"$REMOTE_SCRIPT_LOCAL2"
 #!/bin/bash
 
+# Enable error trapping
+set -o errexit # Enable strict error checking
+#set -o nounset # Exit if an unset variable is used
+set -o noglob # Disable filename expansion
+set -eE
+
+# Function to handle errors with improved retry logic
+handle_error() {
+    local func_name="$1"
+    local err="$2"
+    local retry_command="$3" # New parameter for the command to retry
+    local retry_count=0
+    local max_retries=3 # Adjust the maximum retry attempts as needed
+
+    # Log the error message
+    log_message red "Error in function '${func_name}': ${err}"
+
+    # Optionally, write the error to a specific error log file
+    echo "Error in function '${func_name}': ${err}" >>"$LOCAL_UPDATE_ERROR"
+
+    # Implement retry logic
+    while [[ $retry_count -lt $max_retries ]]; do
+        log_message yellow "Retrying after error... Attempt $((retry_count + 1))/$max_retries"
+
+        # Retry the failed operation
+        if eval "$retry_command"; then
+            log_message green "Retried successfully on attempt $((retry_count + 1))"
+            return 0 # Exit the function successfully
+        fi
+
+        # Increase the retry count
+        ((retry_count++))
+
+        # Optional: Add a delay between retries (e.g., 5 seconds)
+        sleep 5
+    done
+
+    # If all retries fail, log the failure and exit the script
+    log_message red "All retries failed. Exiting script."
+    exit 1
+}
+
+# Trap errors and signals
+trap 'handle_error "$BASH_COMMAND" "$?"' ERR
+trap 'echo "Script terminated prematurely" >> "$RUN_LOG"; exit 1' SIGINT SIGTERM
+trap 'handle_error "SIGPIPE received" "$?"' SIGPIPE
+
 VERSION="1.2 (PiHole2)"
 LOG_FILE="/tmp/remote_update.log"
 BACKUP_LOG_DIR="$HOME/Desktop"
@@ -1105,33 +1164,6 @@ export SUDO_ASKPASS="$SUDO_ASKPASS_PATH"
 # Initialize RUN_LOG and ERROR_LOG
 true >"$RUN_LOG"
 true >"$ERROR_LOG"
-
-# Enable error trapping
-set -e
-
-# Function to handle errors
-handle_error() {
-    local func_name="$1"
-    local err="$2"
-
-    # Log the error message
-    log_message red "Error in function '${func_name}': ${err}"
-
-    # Optionally, write the error to a specific error log file
-    echo "Error in function '${func_name}': ${err}" >>"$BACKUP_LOG_FILE"
-
-    # Perform additional actions if needed, such as:
-    # - Sending a notification
-    # - Retrying the operation
-    # - Logging more details
-
-    # Exit the script
-    exit 1
-}
-
-# Trap errors and signals
-trap 'handle_error "$BASH_COMMAND" "$?"' ERR
-trap 'echo "Script terminated prematurely" >> "$RUN_LOG"; exit 1' SIGINT SIGTERM
 
 # Validation functions
 validate_ip() {
@@ -1431,6 +1463,53 @@ create_remote_script() {
     cat <<'EOF' >"$REMOTE_SCRIPT_LOCAL"
 #!/bin/bash
 
+# Enable error trapping
+set -o errexit # Enable strict error checking
+#set -o nounset # Exit if an unset variable is used
+set -o noglob # Disable filename expansion
+set -eE
+
+# Function to handle errors with improved retry logic
+handle_error() {
+    local func_name="$1"
+    local err="$2"
+    local retry_command="$3" # New parameter for the command to retry
+    local retry_count=0
+    local max_retries=3 # Adjust the maximum retry attempts as needed
+
+    # Log the error message
+    log_message red "Error in function '${func_name}': ${err}"
+
+    # Optionally, write the error to a specific error log file
+    echo "Error in function '${func_name}': ${err}" >>"$LOCAL_UPDATE_ERROR"
+
+    # Implement retry logic
+    while [[ $retry_count -lt $max_retries ]]; do
+        log_message yellow "Retrying after error... Attempt $((retry_count + 1))/$max_retries"
+
+        # Retry the failed operation
+        if eval "$retry_command"; then
+            log_message green "Retried successfully on attempt $((retry_count + 1))"
+            return 0 # Exit the function successfully
+        fi
+
+        # Increase the retry count
+        ((retry_count++))
+
+        # Optional: Add a delay between retries (e.g., 5 seconds)
+        sleep 5
+    done
+
+    # If all retries fail, log the failure and exit the script
+    log_message red "All retries failed. Exiting script."
+    exit 1
+}
+
+# Trap errors and signals
+trap 'handle_error "$BASH_COMMAND" "$?"' ERR
+trap 'echo "Script terminated prematurely" >> "$RUN_LOG"; exit 1' SIGINT SIGTERM
+trap 'handle_error "SIGPIPE received" "$?"' SIGPIPE
+
 VERSION="1.2 (pihole.main)"
 LOG_FILE="/tmp/remote_update.log"
 SUMMARY_LOG="/tmp/remote_update_summary.log"
@@ -1472,33 +1551,6 @@ export SUDO_ASKPASS="$SUDO_ASKPASS_PATH"
 # Initialize RUN_LOG and ERROR_LOG
 true >"$RUN_LOG"
 true >"$ERROR_LOG"
-
-# Enable error trapping
-set -e
-
-# Function to handle errors
-handle_error() {
-    local func_name="$1"
-    local err="$2"
-
-    # Log the error message
-    log_message red "Error in function '${func_name}': ${err}"
-
-    # Optionally, write the error to a specific error log file
-    echo "Error in function '${func_name}': ${err}" >>"$BACKUP_LOG_FILE"
-
-    # Perform additional actions if needed, such as:
-    # - Sending a notification
-    # - Retrying the operation
-    # - Logging more details
-
-    # Exit the script
-    exit 1
-}
-
-# Trap errors and signals
-trap 'handle_error "$BASH_COMMAND" "$?"' ERR
-trap 'echo "Script terminated prematurely" >> "$RUN_LOG"; exit 1' SIGINT SIGTERM
 
 # Validation functions
 validate_ip() {
