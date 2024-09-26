@@ -177,7 +177,7 @@ u_right="\e[36m╮\e[0m"
 b_left="\e[36m╰\e[0m"
 b_right="\e[36m╯\e[0m"
 v_bar="\e[36m│\e[0m"
-h_bar="\e[36m─\e[0m"
+h_bar="─"
 
 # Header creation and display function
 print_header() {
@@ -611,7 +611,8 @@ verify_file_path "$REMOTE_SCRIPT_LOCAL2" "create"
 verify_file_path "$REMOTE_SCRIPT_LOCAL3" "create"
 verify_file_path "$BACKUP_REMOTE_LOG2" "create"
 verify_file_path "$BACKUP_REMOTE_LOG3" "create"
-
+# shellcheck disable=SC2086
+# shellcheck disable=SC2029
 # Function to validate variables and create remote locations
 validate_variables() {
     local remote_hosts=("$REMOTE_HOST" "$REMOTE_HOST2" "$REMOTE_HOST3")
@@ -620,7 +621,7 @@ validate_variables() {
     for i in "${!remote_hosts[@]}"; do
         local host="${remote_hosts[$i]}"
         local script="${remote_scripts[$i]}"
-        # shellcheck disable=SC2029
+
         # Create remote script and set permissions
         ssh "$REMOTE_USER@$host" "
             if [[ ! -f $script ]]; then
@@ -633,7 +634,7 @@ validate_variables() {
             log_message red "Error: Failed to create or set permissions for $script on $host"
             exit 1
         }
-        # shellcheck disable=SC2029
+
         # Check if REMOTE_LOG exists and is writable, create if not
         ssh "$REMOTE_USER@$host" "
             if [[ ! -f $REMOTE_LOG ]]; then
@@ -651,7 +652,7 @@ validate_variables() {
             log_message red "Error: Failed to create or set permissions for REMOTE_LOG on $host"
             exit 1
         }
-        # shellcheck disable=SC2029
+
         # Ensure the directory for REMOTE_LOG is writable
         ssh "$REMOTE_USER@$host" "
             if [[ ! -w $(dirname $REMOTE_LOG) ]]; then
@@ -664,8 +665,7 @@ validate_variables() {
             log_message red "Error: Failed to set permissions for REMOTE_LOG directory on $host"
             exit 1
         }
-        # shellcheck disable=SC2086
-        # shellcheck disable=SC2029
+
         # Ensure the directory for remote script exists and is writable
         ssh "$REMOTE_USER@$host" "
             if [[ ! -d $(dirname $script) ]]; then
@@ -711,19 +711,26 @@ set -o errexit # Enable strict error checking
 set -o noglob # Disable filename expansion
 set -eE
 
-# Function to handle errors with improved retry logic
 handle_error() {
     local func_name="$1"
     local err="$2"
-    local retry_command="$3" # New parameter for the command to retry
+    local retry_command="$3"
     local retry_count=0
-    local max_retries=3 # Adjust the maximum retry attempts as needed
+    local max_retries=3
+    local backtrace_file="/tmp/error_backtrace.txt"
 
     # Log the error message
     log_message red "Error in function '${func_name}': ${err}"
 
-    # Optionally, write the error to a specific error log file
+    # Write the error to a specific error log file
     echo "Error in function '${func_name}': ${err}" >>"$LOCAL_UPDATE_ERROR"
+
+    # Generate backtrace
+    echo "Backtrace:" >>"$backtrace_file"
+    backtrace >>"$backtrace_file"
+
+    # Temporarily disable errexit
+    set +e
 
     # Implement retry logic
     while [[ $retry_count -lt $max_retries ]]; do
@@ -732,7 +739,7 @@ handle_error() {
         # Retry the failed operation
         if eval "$retry_command"; then
             log_message green "Retried successfully on attempt $((retry_count + 1))"
-            return 0 # Exit the function successfully
+            return 0
         fi
 
         # Increase the retry count
@@ -742,8 +749,12 @@ handle_error() {
         sleep 5
     done
 
-    # If all retries fail, log the failure and exit the script
+    # Re-enable errexit
+    set -e
+
+    # If all retries fail, log the failure, print the backtrace, and exit the script
     log_message red "All retries failed. Exiting script."
+    cat "$backtrace_file"
     exit 1
 }
 
@@ -1099,19 +1110,26 @@ set -o errexit # Enable strict error checking
 set -o noglob # Disable filename expansion
 set -eE
 
-# Function to handle errors with improved retry logic
 handle_error() {
     local func_name="$1"
     local err="$2"
-    local retry_command="$3" # New parameter for the command to retry
+    local retry_command="$3"
     local retry_count=0
-    local max_retries=3 # Adjust the maximum retry attempts as needed
+    local max_retries=3
+    local backtrace_file="/tmp/error_backtrace.txt"
 
     # Log the error message
     log_message red "Error in function '${func_name}': ${err}"
 
-    # Optionally, write the error to a specific error log file
+    # Write the error to a specific error log file
     echo "Error in function '${func_name}': ${err}" >>"$LOCAL_UPDATE_ERROR"
+
+    # Generate backtrace
+    echo "Backtrace:" >>"$backtrace_file"
+    backtrace >>"$backtrace_file"
+
+    # Temporarily disable errexit
+    set +e
 
     # Implement retry logic
     while [[ $retry_count -lt $max_retries ]]; do
@@ -1120,7 +1138,7 @@ handle_error() {
         # Retry the failed operation
         if eval "$retry_command"; then
             log_message green "Retried successfully on attempt $((retry_count + 1))"
-            return 0 # Exit the function successfully
+            return 0
         fi
 
         # Increase the retry count
@@ -1130,8 +1148,12 @@ handle_error() {
         sleep 5
     done
 
-    # If all retries fail, log the failure and exit the script
+    # Re-enable errexit
+    set -e
+
+    # If all retries fail, log the failure, print the backtrace, and exit the script
     log_message red "All retries failed. Exiting script."
+    cat "$backtrace_file"
     exit 1
 }
 
@@ -1487,19 +1509,26 @@ set -o errexit # Enable strict error checking
 set -o noglob # Disable filename expansion
 set -eE
 
-# Function to handle errors with improved retry logic
 handle_error() {
     local func_name="$1"
     local err="$2"
-    local retry_command="$3" # New parameter for the command to retry
+    local retry_command="$3"
     local retry_count=0
-    local max_retries=3 # Adjust the maximum retry attempts as needed
+    local max_retries=3
+    local backtrace_file="/tmp/error_backtrace.txt"
 
     # Log the error message
     log_message red "Error in function '${func_name}': ${err}"
 
-    # Optionally, write the error to a specific error log file
+    # Write the error to a specific error log file
     echo "Error in function '${func_name}': ${err}" >>"$LOCAL_UPDATE_ERROR"
+
+    # Generate backtrace
+    echo "Backtrace:" >>"$backtrace_file"
+    backtrace >>"$backtrace_file"
+
+    # Temporarily disable errexit
+    set +e
 
     # Implement retry logic
     while [[ $retry_count -lt $max_retries ]]; do
@@ -1508,7 +1537,7 @@ handle_error() {
         # Retry the failed operation
         if eval "$retry_command"; then
             log_message green "Retried successfully on attempt $((retry_count + 1))"
-            return 0 # Exit the function successfully
+            return 0
         fi
 
         # Increase the retry count
@@ -1518,8 +1547,12 @@ handle_error() {
         sleep 5
     done
 
-    # If all retries fail, log the failure and exit the script
+    # Re-enable errexit
+    set -e
+
+    # If all retries fail, log the failure, print the backtrace, and exit the script
     log_message red "All retries failed. Exiting script."
+    cat "$backtrace_file"
     exit 1
 }
 
@@ -2403,12 +2436,35 @@ execute_remote_script "$REMOTE_USER" "$REMOTE_HOST2" "$REMOTE_SCRIPT_REMOTE2" "$
 
 execute_remote_script "$REMOTE_USER" "$REMOTE_HOST3" "$REMOTE_SCRIPT_REMOTE3" "$REMOTE_LOG" "$BACKUP_REMOTE_LOG3" "AGeorge-Backup HP Envy"
 
-# Final log and backup
-echo
-log_message magenta "Backing up Local logs"
-echo
-cp "$LOG_FILE" "$BACKUP_DIR/$(basename $LOG_FILE)_$(date +%Y%m%d%H%M%S).log"
-cp "$LOG_FILE" "$BACKUP_LOG_FILE"
+backup_local_logs() {
+    local log_file="$1"
+    local backup_dir="$2"
+    local backup_log_file="$3"
+    local timestamp
+    timestamp=$(date +%Y%m%d%H%M%S)
+
+    log_message magenta "Starting backup of local logs"
+
+    # Check if log file exists
+    if [[ ! -f "$log_file" ]]; then
+        handle_error "backup_local_logs" "Log file '$log_file' not found" ""
+        return 1
+    fi
+
+    # Check if backup directory exists, create it if it doesn't
+    if [[ ! -d "$backup_dir" ]]; then
+        log_message yellow "Backup directory '$backup_dir' does not exist. Creating it."
+        mkdir -p "$backup_dir"
+    fi
+
+    # Perform the backup
+    cp "$log_file" "$backup_dir/$(basename "$log_file")_$timestamp.log" || handle_error "backup_local_logs" "Failed to copy log file to backup directory" ""
+    cp "$log_file" "$backup_log_file" || handle_error "backup_local_logs" "Failed to copy log file to backup log file" ""
+
+    log_message green "Backup of local logs completed successfully"
+}
+
+backup_local_logs "$LOG_FILE" "$BACKUP_DIR" "$BACKUP_LOG_FILE"
 
 # Check for errors
 check_run_log
@@ -2617,16 +2673,14 @@ logs=(
     "/tmp/remote_update.log:Remote Update:remote3"
 )
 
+# shellcheck disable=SC2034
 # shellcheck disable=SC2029
 # Function to get log information
 get_log_info() {
     echo -e "\n\e[36mLog Information:\e[0m"
     local local_logs=()
-    # shellcheck disable=SC2034
     local remote_logs1=()
-    # shellcheck disable=SC2034
     local remote_logs2=()
-    # shellcheck disable=SC2034
     local remote_logs3=()
 
     for log in "${logs[@]}"; do
