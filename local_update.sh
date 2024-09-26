@@ -6,19 +6,26 @@ set -o errexit # Enable strict error checking
 set -o noglob # Disable filename expansion
 set -eE
 
-# Function to handle errors with improved retry logic
 handle_error() {
     local func_name="$1"
     local err="$2"
-    local retry_command="$3" # New parameter for the command to retry
+    local retry_command="$3"
     local retry_count=0
-    local max_retries=3 # Adjust the maximum retry attempts as needed
+    local max_retries=3
+    local backtrace_file="/tmp/error_backtrace.txt"
 
     # Log the error message
     log_message red "Error in function '${func_name}': ${err}"
 
-    # Optionally, write the error to a specific error log file
+    # Write the error to a specific error log file
     echo "Error in function '${func_name}': ${err}" >>"$LOCAL_UPDATE_ERROR"
+
+    # Generate backtrace
+    echo "Backtrace:" >>"$backtrace_file"
+    backtrace >>"$backtrace_file"
+
+    # Temporarily disable errexit
+    set +e
 
     # Implement retry logic
     while [[ $retry_count -lt $max_retries ]]; do
@@ -27,7 +34,7 @@ handle_error() {
         # Retry the failed operation
         if eval "$retry_command"; then
             log_message green "Retried successfully on attempt $((retry_count + 1))"
-            return 0 # Exit the function successfully
+            return 0
         fi
 
         # Increase the retry count
@@ -37,8 +44,12 @@ handle_error() {
         sleep 5
     done
 
-    # If all retries fail, log the failure and exit the script
+    # Re-enable errexit
+    set -e
+
+    # If all retries fail, log the failure, print the backtrace, and exit the script
     log_message red "All retries failed. Exiting script."
+    cat "$backtrace_file"
     exit 1
 }
 
@@ -48,7 +59,7 @@ trap 'echo "Script terminated prematurely" >> "$RUN_LOG"; exit 1' SIGINT SIGTERM
 trap 'handle_error "SIGPIPE received" "$?"' SIGPIPE
 
 # Variables
-VERSION="1.2.79"
+VERSION="1.2.8"
 SCRIPT_NAME="local_update.sh"
 REMOTE_USER="ageorge"
 REMOTE_HOST="192.168.1.248"
@@ -81,8 +92,6 @@ CACHE_DIR="$HOME/.logscan_cache"
 temp_error_counts="$CACHE_DIR/temp_error_counts.txt"
 LAST_RUN_FILE="$CACHE_DIR/last_run"
 DRY_RUN=false
-# Set DRY_RUN to false by default if not provided
-DRY_RUN=${DRY_RUN:-false}
 
 # Function to log messages with color
 log_message() {
@@ -112,10 +121,10 @@ log_message() {
 check_dry_run_mode() {
     if $DRY_RUN; then
         echo -e "\e[33m[DRY-RUN MODE] The following actions will be taken (no actual changes will be made):\e[0m"
-        return 0 # Success
+        return 0
     fi
 
-    return 1 # Failure
+    return 1
 }
 
 # Function to display usage information
@@ -210,7 +219,7 @@ print_header() {
     local content_width=$((width - 2)) # Subtract 2 for the left and right borders
 
     print_line() {
-        printf "\e[36m%s\e[0m\n" "$(printf "%${width}s" | tr ' ' "$h_bar")"
+        printf "\e[36m%s\e[0m\n" "$(printf "%${width}s" | tr ' ' "${h_bar}")"
     }
 
     print_content_line() {
@@ -235,7 +244,7 @@ print_header() {
         [[ -n $line ]] && print_content_line "$(printf "%-${#prefix}s%s" "$prefix" "$line")"
     }
 
-    echo -e "\e[36m+$(printf "%${width}s" | tr ' ' "$h_bar")+\e[0m"
+    echo -e "\e[36m+$(printf "%${width}s" | tr ' ' "${h_bar}")+\e[0m"
     printf "\e[36m|\e[1;33m %-${content_width}s \e[36m|\e[0m\n" "$script_name v$version"
     print_line
     print_content_line "$(printf "%-15s\e[32m%s" "Date:" "$date")"
@@ -255,7 +264,7 @@ print_header() {
         value="${!var}"
         print_content_line "$(printf "%-20s \e[32m%s" "$var:" "$value")"
     done
-    echo -e "\e[36m+$(printf "%${width}s" | tr ' ' "$h_bar")+\e[0m"
+    echo -e "\e[36m+$(printf "%${width}s" | tr ' ' "${h_bar}")+\e[0m"
     echo
 }
 
@@ -297,6 +306,7 @@ conditional_echo() {
         echo "$@"
     fi
 }
+
 # shellcheck disable=SC2029
 # Function to check file existence, create if needed, and set permissions
 check_and_create_remote_file() {
@@ -2607,6 +2617,7 @@ logs=(
     "/tmp/remote_update.log:Remote Update:remote3"
 )
 
+# shellcheck disable=SC2029
 # Function to get log information
 get_log_info() {
     echo -e "\n\e[36mLog Information:\e[0m"
@@ -2630,17 +2641,17 @@ get_log_info() {
             fi
             ;;
         "remote1")
-            # shellcheck disable=SC2029
+
             remote_log=$(ssh "$REMOTE_USER@$REMOTE_HOST" "test -f '$path' && ${sudo_flag:+sudo }du -h '$path' || echo 'Not Found'")
             process_remote_log remote_logs1 "$name" "$remote_log"
             ;;
         "remote2")
-            # shellcheck disable=SC2029
+
             remote_log=$(ssh "$REMOTE_USER@$REMOTE_HOST2" "test -f '$path' && ${sudo_flag:+sudo }du -h '$path' || echo 'Not Found'")
             process_remote_log remote_logs2 "$name" "$remote_log"
             ;;
         "remote3")
-            # shellcheck disable=SC2029
+
             remote_log=$(ssh "$REMOTE_USER@$REMOTE_HOST3" "test -f '$path' && ${sudo_flag:+sudo }du -h '$path' || echo 'Not Found'")
             process_remote_log remote_logs3 "$name" "$remote_log"
             ;;
@@ -2894,9 +2905,9 @@ print_diagram() {
     local total_width=$((max_hostname_width + max_ip_width + max_mac_width + max_services_width + 4 * 3 + 4))
 
     # Print the header
-    printf "%b\n" "${u_left}$(printf "%${total_width}s" "" | tr " " "$h_bar")${u_right}"
+    printf "%b\n" "${u_left}$(printf "%${total_width}s" "" | tr " " "${h_bar}")${u_right}"
     printf "%b\n" "${v_bar} \e[96m$(printf "%-${max_hostname_width}s" "Hostname")\e[0m ${v_bar} \e[96m$(printf "%-${max_ip_width}s" "IP Address")\e[0m ${v_bar} \e[96m$(printf "%-${max_mac_width}s" "MAC Address")\e[0m ${v_bar} \e[96m$(printf "%-${max_services_width}s" "Open Services")\e[0m ${v_bar}"
-    printf "%b\n" "${u_left}$(printf "%${total_width}s" "" | tr " " "$h_bar")${u_right}"
+    printf "%b\n" "${u_left}$(printf "%${total_width}s" "" | tr " " "${h_bar}")${u_right}"
 
     # Loop through each active host and display the information
     while read -r hostname ip mac; do
@@ -2907,7 +2918,7 @@ print_diagram() {
     done < <(scan_network_for_active_hosts)
 
     # Print the footer
-    printf "%b\n" "${b_left}$(printf "%${total_width}s" "" | tr " " "$h_bar")${b_right}"
+    printf "%b\n" "${b_left}$(printf "%${total_width}s" "" | tr " " "${h_bar}")${b_right}"
 }
 
 print_diagram
