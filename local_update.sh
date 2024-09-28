@@ -22,7 +22,10 @@ handle_error() {
 
     # Generate backtrace
     echo "Backtrace:" >>"$backtrace_file"
-    backtrace >>"$backtrace_file"
+    local i=0
+    while caller $i >>"$backtrace_file"; do
+        ((i++))
+    done
 
     # Temporarily disable errexit
     set +e
@@ -59,7 +62,7 @@ trap 'echo "Script terminated prematurely" >> "$RUN_LOG"; exit 1' SIGINT SIGTERM
 trap 'handle_error "SIGPIPE received" "$?"' SIGPIPE
 
 # Variables
-VERSION="1.2.8"
+VERSION="1.2.9"
 SCRIPT_NAME="local_update.sh"
 REMOTE_USER="ageorge"
 REMOTE_HOST="192.168.1.248"
@@ -727,7 +730,10 @@ handle_error() {
 
     # Generate backtrace
     echo "Backtrace:" >>"$backtrace_file"
-    backtrace >>"$backtrace_file"
+    local i=0
+    while caller $i >>"$backtrace_file"; do
+        ((i++))
+    done
 
     # Temporarily disable errexit
     set +e
@@ -757,6 +763,7 @@ handle_error() {
     cat "$backtrace_file"
     exit 1
 }
+
 
 # Trap errors and signals
 trap 'handle_error "$BASH_COMMAND" "$?"' ERR
@@ -1126,7 +1133,10 @@ handle_error() {
 
     # Generate backtrace
     echo "Backtrace:" >>"$backtrace_file"
-    backtrace >>"$backtrace_file"
+    local i=0
+    while caller $i >>"$backtrace_file"; do
+        ((i++))
+    done
 
     # Temporarily disable errexit
     set +e
@@ -1156,6 +1166,7 @@ handle_error() {
     cat "$backtrace_file"
     exit 1
 }
+
 
 # Trap errors and signals
 trap 'handle_error "$BASH_COMMAND" "$?"' ERR
@@ -1525,7 +1536,10 @@ handle_error() {
 
     # Generate backtrace
     echo "Backtrace:" >>"$backtrace_file"
-    backtrace >>"$backtrace_file"
+    local i=0
+    while caller $i >>"$backtrace_file"; do
+        ((i++))
+    done
 
     # Temporarily disable errexit
     set +e
@@ -1555,6 +1569,7 @@ handle_error() {
     cat "$backtrace_file"
     exit 1
 }
+
 
 # Trap errors and signals
 trap 'handle_error "$BASH_COMMAND" "$?"' ERR
