@@ -614,6 +614,7 @@ verify_file_path "$REMOTE_SCRIPT_LOCAL2" "create"
 verify_file_path "$REMOTE_SCRIPT_LOCAL3" "create"
 verify_file_path "$BACKUP_REMOTE_LOG2" "create"
 verify_file_path "$BACKUP_REMOTE_LOG3" "create"
+
 # shellcheck disable=SC2086
 # shellcheck disable=SC2029
 # Function to validate variables and create remote locations
@@ -2400,7 +2401,7 @@ if ! perform_local_update; then
     exit 1
 fi
 
-log_message cyan "Remote script completed."
+log_message cyan "Local script completed."
 
 # shellcheck disable=SC2317
 # shellcheck disable=SC2029
