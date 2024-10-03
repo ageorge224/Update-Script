@@ -2591,7 +2591,7 @@ source_from_dir() {
 }
 
 # Source your log_functions.sh file using the function
-source_from_dir "/home/ageorge/Desktop" "log_functions.sh"
+source_from_dir "/home/ageorge/Desktop/Update-Script" "log_functions.sh"
 
 # Example usage (assuming log_functions.sh defines functions for logging)
 log_message "This script is located in $(dirname "$0")"
@@ -2860,9 +2860,6 @@ scan_and_classify_logs() {
         echo "$errors" >>"$LOCAL_UPDATE_ERROR"
         echo "$errors" >>"$SEEN_ERRORS_FILE"
     }
-
-    cat "$SEEN_ERRORS_FILE" >>"$LOCAL_UPDATE_ERROR"
-    cat "$centralized_error_log" >>"$LOCAL_UPDATE_ERROR"
 
     # Export the functions and variables for parallel execution
     export -f process_log process_log_content remote_log_scan
