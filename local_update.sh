@@ -65,25 +65,25 @@ trap 'handle_error "SIGPIPE received" "$?"' SIGPIPE
 VERSION="1.2.9"
 SCRIPT_NAME="local_update.sh"
 REMOTE_USER="ageorge"
-REMOTE_HOST="192.168.1.248"
-REMOTE_HOST2="192.168.1.145"
-REMOTE_HOST3="192.168.1.238"
+pihole="192.168.1.248"
+pihole2="192.168.1.145"
+AG_backup="192.168.1.238"
 BACKUP_DIR="/home/ageorge/Documents/Backups"
 BACKUP_DIR2="/mnt/Nvme500Data/Update Backups"
 REMOTE_LOG="/home/ageorge/Desktop/remote_update.log"
 CHANGELOG_FILE="$BACKUP_DIR/changelog.txt"
 LOG_FILE="/tmp/local_update.log"
-BACKUP_LOG_DIR="$HOME/Desktop"
-BACKUP_REMOTE_LOG="$BACKUP_LOG_DIR/remote_update.log"
-BACKUP_REMOTE_LOG2="$BACKUP_LOG_DIR/remote_update2.log"
-BACKUP_REMOTE_LOG3="$BACKUP_LOG_DIR/remote_update3.log"
+BACKUP_LOG_DIR="/home/ageorge/.local_update_logs"
+pihole_log="$BACKUP_LOG_DIR/remote_update.log"
+pihole2_log="$BACKUP_LOG_DIR/remote_update2.log"
+AG_Backup_log="$BACKUP_LOG_DIR/remote_update3.log"
 BACKUP_LOG_FILE="$BACKUP_LOG_DIR/local_update.log"
-REMOTE_SCRIPT_LOCAL="/tmp/remote_update.sh"
-REMOTE_SCRIPT_LOCAL2="/tmp/remote_update2.sh"
-REMOTE_SCRIPT_LOCAL3="/tmp/remote_update3.sh"
-REMOTE_SCRIPT_REMOTE="/tmp/remote_update.sh"
-REMOTE_SCRIPT_REMOTE2="/tmp/remote_update2.sh"
-REMOTE_SCRIPT_REMOTE3="/tmp/remote_update3.sh"
+pihole_local="/tmp/remote_update.sh"
+pihole2_local="/tmp/remote_update2.sh"
+AG_Backup_local="/tmp/remote_update3.sh"
+pihole_Remote="/tmp/remote_update.sh"
+pihole2_Remote="/tmp/remote_update2.sh"
+AG_Backup_Remote="/tmp/remote_update3.sh"
 SUDO_ASKPASS_PATH="$HOME/sudo_askpass.sh"
 RUN_LOG="/tmp/run_log.txt"
 CHECKSUM_FILE="/tmp/remote_update.sh.md5"
@@ -202,7 +202,7 @@ print_header() {
         [[ $temp_width -gt $max_width ]] && max_width=$temp_width
 
         local vars=("REMOTE_USER"
-            "REMOTE_HOST"
+            "pihole"
             "BACKUP_DIR"
             "BACKUP_DIR2"
             "LOG_FILE"
@@ -257,7 +257,7 @@ print_header() {
     print_line
     print_content_line "\e[1mConfiguration Variables:"
     local vars=("REMOTE_USER"
-        "REMOTE_HOST"
+        "pihole"
         "BACKUP_DIR"
         "BACKUP_DIR2"
         "LOG_FILE"
@@ -279,9 +279,9 @@ validate_log_files() {
         local log_files=("$LOG_FILE"
             "$BACKUP_LOG_FILE"
             "$REMOTE_LOG"
-            "$BACKUP_REMOTE_LOG"
-            "$BACKUP_REMOTE_LOG2"
-            "$BACKUP_REMOTE_LOG3"
+            "$pihole_log"
+            "$pihole2_log"
+            "$AG_Backup_log"
             "$centralized_error_log"
             "$LOCAL_UPDATE_ERROR"
             "$LOCAL_UPDATE_DEBUG")
@@ -386,16 +386,16 @@ process_remote_files
 # Function to validate SSH connection
 validate_ssh_connection() {
     {
-        if ! ssh -q -o BatchMode=yes -o ConnectTimeout=5 "$REMOTE_USER@$REMOTE_HOST" exit; then
-            log_message red "Error: Cannot establish SSH connection to $REMOTE_USER@$REMOTE_HOST"
+        if ! ssh -q -o BatchMode=yes -o ConnectTimeout=5 "$REMOTE_USER@$pihole" exit; then
+            log_message red "Error: Cannot establish SSH connection to $REMOTE_USER@$pihole"
             exit 1
         fi
-        if ! ssh -q -o BatchMode=yes -o ConnectTimeout=5 "$REMOTE_USER@$REMOTE_HOST2" exit; then
-            log_message red "Error: Cannot establish SSH connection to $REMOTE_USER@$REMOTE_HOST2"
+        if ! ssh -q -o BatchMode=yes -o ConnectTimeout=5 "$REMOTE_USER@$pihole2" exit; then
+            log_message red "Error: Cannot establish SSH connection to $REMOTE_USER@$pihole2"
             exit 1
         fi
-        if ! ssh -q -o BatchMode=yes -o ConnectTimeout=5 "$REMOTE_USER@$REMOTE_HOST3" exit; then
-            log_message red "Error: Cannot establish SSH connection to $REMOTE_USER@$REMOTE_HOST3"
+        if ! ssh -q -o BatchMode=yes -o ConnectTimeout=5 "$REMOTE_USER@$AG_backup" exit; then
+            log_message red "Error: Cannot establish SSH connection to $REMOTE_USER@$AG_backup"
             exit 1
         fi
     } || handle_error "validate_ssh_connection" "$?"
@@ -470,33 +470,33 @@ validate_variablesv2() {
         exit 1
     fi
 
-    if [[ -z "$REMOTE_HOST" ]]; then
-        log_message red "Error: REMOTE_HOST is not set"
+    if [[ -z "$pihole" ]]; then
+        log_message red "Error: pihole is not set"
         exit 1
     fi
 
-    if [[ -z "$REMOTE_HOST2" ]]; then
-        log_message red "Error: REMOTE_HOST is not set"
+    if [[ -z "$pihole2" ]]; then
+        log_message red "Error: pihole is not set"
         exit 1
     fi
 
-    if [[ -z "$REMOTE_HOST3" ]]; then
-        log_message red "Error: REMOTE_HOST is not set"
+    if [[ -z "$AG_backup" ]]; then
+        log_message red "Error: pihole is not set"
         exit 1
     fi
 
-    if ! validate_ip "$REMOTE_HOST"; then
-        log_message red "Error: Invalid IP address for REMOTE_HOST"
+    if ! validate_ip "$pihole"; then
+        log_message red "Error: Invalid IP address for pihole"
         exit 1
     fi
 
-    if ! validate_ip "$REMOTE_HOST2"; then
-        log_message red "Error: Invalid IP address for REMOTE_HOST"
+    if ! validate_ip "$pihole2"; then
+        log_message red "Error: Invalid IP address for pihole"
         exit 1
     fi
 
-    if ! validate_ip "$REMOTE_HOST3"; then
-        log_message red "Error: Invalid IP address for REMOTE_HOST"
+    if ! validate_ip "$AG_backup"; then
+        log_message red "Error: Invalid IP address for pihole"
         exit 1
     fi
 
@@ -600,7 +600,7 @@ verify_and_create_directory "$BACKUP_DIR2"
 verify_and_create_directory "$BACKUP_LOG_DIR"
 verify_file_path "$CHANGELOG_FILE" "create"
 verify_file_path "$LOG_FILE" "create"
-verify_file_path "$BACKUP_REMOTE_LOG" "create"
+verify_file_path "$pihole_log" "create"
 verify_file_path "$BACKUP_LOG_FILE" "create"
 verify_file_path "$centralized_error_log" "create"
 verify_file_path "$SUDO_ASKPASS_PATH"
@@ -609,21 +609,21 @@ verify_file_path "$CHECKSUM_FILE" "create"
 verify_file_path "$SEEN_ERRORS_FILE" "create"
 verify_file_path "$LOCAL_UPDATE_ERROR" "create"
 verify_file_path "$LOCAL_UPDATE_DEBUG" "create"
-verify_file_path "$REMOTE_SCRIPT_LOCAL" "create"
-verify_file_path "$REMOTE_SCRIPT_LOCAL2" "create"
-verify_file_path "$REMOTE_SCRIPT_LOCAL3" "create"
-verify_file_path "$BACKUP_REMOTE_LOG2" "create"
-verify_file_path "$BACKUP_REMOTE_LOG3" "create"
+verify_file_path "$pihole_local" "create"
+verify_file_path "$pihole2_local" "create"
+verify_file_path "$AG_Backup_local" "create"
+verify_file_path "$pihole2_log" "create"
+verify_file_path "$AG_Backup_log" "create"
 
 # shellcheck disable=SC2086
 # shellcheck disable=SC2029
 # Function to validate variables and create remote locations
 validate_variables() {
-    local remote_hosts=("$REMOTE_HOST" "$REMOTE_HOST2" "$REMOTE_HOST3")
-    local remote_scripts=("$REMOTE_SCRIPT_REMOTE" "$REMOTE_SCRIPT_REMOTE2" "$REMOTE_SCRIPT_REMOTE3")
+    local piholes=("$pihole" "$pihole2" "$AG_backup")
+    local remote_scripts=("$pihole_Remote" "$pihole2_Remote" "$AG_Backup_Remote")
 
-    for i in "${!remote_hosts[@]}"; do
-        local host="${remote_hosts[$i]}"
+    for i in "${!piholes[@]}"; do
+        local host="${piholes[$i]}"
         local script="${remote_scripts[$i]}"
 
         # Create remote script and set permissions
@@ -697,7 +697,7 @@ validate_variablesv2
 # Function to make Remote_Script3
 create_remote_script3() {
     local available_space
-    available_space=$(df -P "$(dirname "$REMOTE_SCRIPT_LOCAL3")" | awk 'NR==2 {print $4}')
+    available_space=$(df -P "$(dirname "$AG_Backup_local")" | awk 'NR==2 {print $4}')
 
     # Check if available space is below a threshold (e.g., 1024 MB)
     if [[ $available_space -lt 1024 ]]; then
@@ -706,7 +706,7 @@ create_remote_script3() {
     fi
 
     # Writing the remote script content to file
-    cat <<'EOF' >"$REMOTE_SCRIPT_LOCAL3"
+    cat <<'EOF' >"$AG_Backup_local"
 #!/bin/bash
 
 # Enable error trapping
@@ -1089,18 +1089,18 @@ fi
 EOF
 
     # Set execute permissions on the remote script
-    if ! chmod +x "$REMOTE_SCRIPT_LOCAL3"; then
+    if ! chmod +x "$AG_Backup_local"; then
         log_message red "Error: Failed to set execute permissions on remote script"
         return 1
     fi
 
-    log_message green "Remote script created at: $REMOTE_SCRIPT_LOCAL3"
+    log_message green "Remote script created at: $AG_Backup_local"
 }
 
 # Function to make Remote_Script2
 create_remote_script2() {
     local available_space
-    available_space=$(df -P "$(dirname "$REMOTE_SCRIPT_LOCAL2")" | awk 'NR==2 {print $4}')
+    available_space=$(df -P "$(dirname "$pihole2_local")" | awk 'NR==2 {print $4}')
 
     # Check if available space is below a threshold (e.g., 1024 MB)
     if [[ $available_space -lt 1024 ]]; then
@@ -1109,7 +1109,7 @@ create_remote_script2() {
     fi
 
     # Writing the remote script content to file
-    cat <<'EOF' >"$REMOTE_SCRIPT_LOCAL2"
+    cat <<'EOF' >"$pihole2_local"
 #!/bin/bash
 
 # Enable error trapping
@@ -1488,22 +1488,21 @@ else
   echo "Sync failed. Please check the output for details."
 fi
 
-
 EOF
 
     # Set execute permissions on the remote script
-    if ! chmod +x "$REMOTE_SCRIPT_LOCAL2"; then
+    if ! chmod +x "$pihole2_local"; then
         log_message red "Error: Failed to set execute permissions on remote script"
         return 1
     fi
 
-    log_message green "Remote script created at: $REMOTE_SCRIPT_LOCAL2"
+    log_message green "Remote script created at: $pihole2_local"
 }
 
 # Function to make Remote_Script
 create_remote_script() {
     local available_space
-    available_space=$(df -P "$(dirname "$REMOTE_SCRIPT_LOCAL")" | awk 'NR==2 {print $4}')
+    available_space=$(df -P "$(dirname "$pihole_local")" | awk 'NR==2 {print $4}')
 
     # Check if available space is below a threshold (e.g., 1024 MB)
     if [[ $available_space -lt 1024 ]]; then
@@ -1512,7 +1511,7 @@ create_remote_script() {
     fi
 
     # Writing the remote script content to file
-    cat <<'EOF' >"$REMOTE_SCRIPT_LOCAL"
+    cat <<'EOF' >"$pihole_local"
 #!/bin/bash
 
 # Enable error trapping
@@ -1923,16 +1922,15 @@ else
   echo "Sync failed. Please check the output for details."
 fi
 
-
 EOF
 
     # Set execute permissions on the remote script
-    if ! chmod +x "$REMOTE_SCRIPT_LOCAL"; then
+    if ! chmod +x "$pihole_local"; then
         log_message red "Error: Failed to set execute permissions on remote script"
         return 1
     fi
 
-    log_message green "Remote script created at: $REMOTE_SCRIPT_LOCAL"
+    log_message green "Remote script created at: $pihole_local"
 }
 
 # Invoke remote script creation
@@ -1949,18 +1947,18 @@ LOCAL_CHECKSUM_FILE_REMOTE3="/tmp/remote_update3.sh.md5"
 generate_local_checksums() {
     echo "Generating local checksums..."
 
-    if ! md5sum "$REMOTE_SCRIPT_LOCAL" >"$LOCAL_CHECKSUM_FILE_REMOTE1"; then
-        log_message red "Failed to generate local checksum for $REMOTE_SCRIPT_LOCAL"
+    if ! md5sum "$pihole_local" >"$LOCAL_CHECKSUM_FILE_REMOTE1"; then
+        log_message red "Failed to generate local checksum for $pihole_local"
         return 1
     fi
 
-    if ! md5sum "$REMOTE_SCRIPT_LOCAL2" >"$LOCAL_CHECKSUM_FILE_REMOTE2"; then
-        log_message red "Failed to generate local checksum for $REMOTE_SCRIPT_LOCAL2"
+    if ! md5sum "$pihole2_local" >"$LOCAL_CHECKSUM_FILE_REMOTE2"; then
+        log_message red "Failed to generate local checksum for $pihole2_local"
         return 1
     fi
 
-    if ! md5sum "$REMOTE_SCRIPT_LOCAL3" >"$LOCAL_CHECKSUM_FILE_REMOTE3"; then
-        log_message red "Failed to generate local checksum for $REMOTE_SCRIPT_LOCAL3"
+    if ! md5sum "$AG_Backup_local" >"$LOCAL_CHECKSUM_FILE_REMOTE3"; then
+        log_message red "Failed to generate local checksum for $AG_Backup_local"
         return 1
     fi
 
@@ -1971,18 +1969,18 @@ generate_local_checksums() {
 # Function to copy script to remote, set permissions, and generate remote checksum
 copy_local_to_remote() {
     if check_dry_run_mode; then
-        echo "scp $REMOTE_SCRIPT_LOCAL $REMOTE_USER@$REMOTE_HOST:$REMOTE_SCRIPT_REMOTE"
-        echo "ssh $REMOTE_USER@$REMOTE_HOST 'chmod +x $REMOTE_SCRIPT_REMOTE'"
-        echo "ssh $REMOTE_USER@$REMOTE_HOST 'md5sum $REMOTE_SCRIPT_REMOTE > /tmp/remote_update.sh.md5'"
+        echo "scp $pihole_local $REMOTE_USER@$pihole:$pihole_Remote"
+        echo "ssh $REMOTE_USER@$pihole 'chmod +x $pihole_Remote'"
+        echo "ssh $REMOTE_USER@$pihole 'md5sum $pihole_Remote > /tmp/remote_update.sh.md5'"
     else
-        echo "Copying and generating checksum for remote_update.sh on $REMOTE_HOST..."
-        if ! scp "$REMOTE_SCRIPT_LOCAL" "$REMOTE_USER@$REMOTE_HOST:$REMOTE_SCRIPT_REMOTE"; then
+        echo "Copying and generating checksum for remote_update.sh on $pihole..."
+        if ! scp "$pihole_local" "$REMOTE_USER@$pihole:$pihole_Remote"; then
             handle_error "copy_local_to_remote" "Failed to copy script to remote host"
         fi
-        if ! ssh "$REMOTE_USER@$REMOTE_HOST" "chmod +x '$REMOTE_SCRIPT_REMOTE'"; then
+        if ! ssh "$REMOTE_USER@$pihole" "chmod +x '$pihole_Remote'"; then
             handle_error "copy_local_to_remote" "Failed to set execute permissions on remote script"
         fi
-        if ! ssh "$REMOTE_USER@$REMOTE_HOST" "md5sum '$REMOTE_SCRIPT_REMOTE' > /tmp/remote_update.sh.md5"; then
+        if ! ssh "$REMOTE_USER@$pihole" "md5sum '$pihole_Remote' > /tmp/remote_update.sh.md5"; then
             handle_error "copy_local_to_remote" "Failed to generate remote checksum"
         fi
     fi
@@ -1990,44 +1988,44 @@ copy_local_to_remote() {
 # shellcheck disable=SC2029
 copy_local_to_remote2() {
     if check_dry_run_mode; then
-        echo "scp $REMOTE_SCRIPT_LOCAL2 $REMOTE_USER@$REMOTE_HOST2:$REMOTE_SCRIPT_REMOTE2"
-        echo "ssh $REMOTE_USER@$REMOTE_HOST2 'chmod +x $REMOTE_SCRIPT_REMOTE2'"
-        echo "ssh $REMOTE_USER@$REMOTE_HOST2 'md5sum $REMOTE_SCRIPT_REMOTE2 > /tmp/remote_update2.sh.md5'"
+        echo "scp $pihole2_local $REMOTE_USER@$pihole2:$pihole2_Remote"
+        echo "ssh $REMOTE_USER@$pihole2 'chmod +x $pihole2_Remote'"
+        echo "ssh $REMOTE_USER@$pihole2 'md5sum $pihole2_Remote > /tmp/remote_update2.sh.md5'"
     else
-        echo "Copying and generating checksum for remote_update2.sh on $REMOTE_HOST2..."
-        if ! scp "$REMOTE_SCRIPT_LOCAL2" "$REMOTE_USER@$REMOTE_HOST2:$REMOTE_SCRIPT_REMOTE2"; then
+        echo "Copying and generating checksum for remote_update2.sh on $pihole2..."
+        if ! scp "$pihole2_local" "$REMOTE_USER@$pihole2:$pihole2_Remote"; then
             handle_error "copy_local_to_remote2" "Failed to copy script to remote host2"
         fi
-        if ! ssh "$REMOTE_USER@$REMOTE_HOST2" "chmod +x '$REMOTE_SCRIPT_REMOTE2'"; then
+        if ! ssh "$REMOTE_USER@$pihole2" "chmod +x '$pihole2_Remote'"; then
             handle_error "copy_local_to_remote2" "Failed to set execute permissions on remote script2"
         fi
-        if ! ssh "$REMOTE_USER@$REMOTE_HOST2" "md5sum '$REMOTE_SCRIPT_REMOTE2' > /tmp/remote_update2.sh.md5"; then
-            echo "Debug: Failed to generate checksum on $REMOTE_HOST2 for $REMOTE_SCRIPT_REMOTE2"
+        if ! ssh "$REMOTE_USER@$pihole2" "md5sum '$pihole2_Remote' > /tmp/remote_update2.sh.md5"; then
+            echo "Debug: Failed to generate checksum on $pihole2 for $pihole2_Remote"
             handle_error "copy_local_to_remote2" "Failed to generate remote checksum on host2"
         else
-            echo "Checksum generated for remote_update2.sh on $REMOTE_HOST2"
+            echo "Checksum generated for remote_update2.sh on $pihole2"
         fi
     fi
 }
 # shellcheck disable=SC2029
 copy_local_to_remote3() {
     if check_dry_run_mode; then
-        echo "scp $REMOTE_SCRIPT_LOCAL3 $REMOTE_USER@$REMOTE_HOST3:$REMOTE_SCRIPT_REMOTE3"
-        echo "ssh $REMOTE_USER@$REMOTE_HOST3 'chmod +x $REMOTE_SCRIPT_REMOTE3'"
-        echo "ssh $REMOTE_USER@$REMOTE_HOST3 'md5sum $REMOTE_SCRIPT_REMOTE3 > /tmp/remote_update3.sh.md5'"
+        echo "scp $AG_Backup_local $REMOTE_USER@$AG_backup:$AG_Backup_Remote"
+        echo "ssh $REMOTE_USER@$AG_backup 'chmod +x $AG_Backup_Remote'"
+        echo "ssh $REMOTE_USER@$AG_backup 'md5sum $AG_Backup_Remote > /tmp/remote_update3.sh.md5'"
     else
-        echo "Copying and generating checksum for remote_update3.sh on $REMOTE_HOST3..."
-        if ! scp "$REMOTE_SCRIPT_LOCAL3" "$REMOTE_USER@$REMOTE_HOST3:$REMOTE_SCRIPT_REMOTE3"; then
+        echo "Copying and generating checksum for remote_update3.sh on $AG_backup..."
+        if ! scp "$AG_Backup_local" "$REMOTE_USER@$AG_backup:$AG_Backup_Remote"; then
             handle_error "copy_local_to_remote3" "Failed to copy script to remote host3"
         fi
-        if ! ssh "$REMOTE_USER@$REMOTE_HOST3" "chmod +x '$REMOTE_SCRIPT_REMOTE3'"; then
+        if ! ssh "$REMOTE_USER@$AG_backup" "chmod +x '$AG_Backup_Remote'"; then
             handle_error "copy_local_to_remote3" "Failed to set execute permissions on remote script3"
         fi
-        if ! ssh "$REMOTE_USER@$REMOTE_HOST3" "md5sum '$REMOTE_SCRIPT_REMOTE3' > /tmp/remote_update3.sh.md5"; then
-            echo "Debug: Failed to generate checksum on $REMOTE_HOST3 for $REMOTE_SCRIPT_REMOTE3"
+        if ! ssh "$REMOTE_USER@$AG_backup" "md5sum '$AG_Backup_Remote' > /tmp/remote_update3.sh.md5"; then
+            echo "Debug: Failed to generate checksum on $AG_backup for $AG_Backup_Remote"
             handle_error "copy_local_to_remote3" "Failed to generate remote checksum on host3"
         else
-            echo "Checksum generated for remote_update3.sh on $REMOTE_HOST3"
+            echo "Checksum generated for remote_update3.sh on $AG_backup"
         fi
     fi
 }
@@ -2037,7 +2035,7 @@ verify_checksums() {
     log_message light_blue "Verifying script checksums on remote servers..."
 
     # Checksum verification for remote_update.sh
-    if scp "$REMOTE_USER@$REMOTE_HOST:/tmp/remote_update.sh.md5" /tmp/; then
+    if scp "$REMOTE_USER@$pihole:/tmp/remote_update.sh.md5" /tmp/; then
         if diff -q "$LOCAL_CHECKSUM_FILE_REMOTE1" /tmp/remote_update.sh.md5; then
             log_message light_magenta "Checksum verification successful for remote_update.sh.md5: Checksums match."
         else
@@ -2048,7 +2046,7 @@ verify_checksums() {
     fi
 
     # Checksum verification for remote_update2.sh
-    if scp "$REMOTE_USER@$REMOTE_HOST2:/tmp/remote_update2.sh.md5" /tmp/; then
+    if scp "$REMOTE_USER@$pihole2:/tmp/remote_update2.sh.md5" /tmp/; then
         if diff -q "$LOCAL_CHECKSUM_FILE_REMOTE2" /tmp/remote_update2.sh.md5; then
             log_message light_magenta "Checksum verification successful for remote_update2.sh.md5: Checksums match."
         else
@@ -2056,11 +2054,11 @@ verify_checksums() {
         fi
     else
         log_message red "Failed to retrieve remote checksum file: remote_update2.sh.md5"
-        ssh "$REMOTE_USER@$REMOTE_HOST2" "ls -l /tmp/remote_update2.sh.md5"
+        ssh "$REMOTE_USER@$pihole2" "ls -l /tmp/remote_update2.sh.md5"
     fi
 
     # Checksum verification for remote_update3.sh
-    if scp "$REMOTE_USER@$REMOTE_HOST3:/tmp/remote_update3.sh.md5" /tmp/; then
+    if scp "$REMOTE_USER@$AG_backup:/tmp/remote_update3.sh.md5" /tmp/; then
         if diff -q "$LOCAL_CHECKSUM_FILE_REMOTE3" /tmp/remote_update3.sh.md5; then
             log_message light_magenta "Checksum verification successful for remote_update3.sh.md5: Checksums match."
         else
@@ -2068,7 +2066,7 @@ verify_checksums() {
         fi
     else
         log_message red "Failed to retrieve remote checksum file: remote_update3.sh.md5"
-        ssh "$REMOTE_USER@$REMOTE_HOST3" "ls -l /tmp/remote_update3.sh.md5"
+        ssh "$REMOTE_USER@$AG_backup" "ls -l /tmp/remote_update3.sh.md5"
     fi
 }
 
@@ -2089,8 +2087,8 @@ get_log_info2() {
         local logs=(
             "$LOG_FILE:Local Update Log:local"
             "$BACKUP_LOG_FILE:Backup Log File:local"
-            "$REMOTE_SCRIPT_LOCAL:Remote Update Script (Local):local"
-            "$REMOTE_SCRIPT_REMOTE:Remote Update Script (Remote):remote"
+            "$pihole_local:Remote Update Script (Local):local"
+            "$pihole_Remote:Remote Update Script (Remote):remote"
             "/var/log/pihole/pihole_updateGravity.log:Pi-hole Gravity Update Log:remote"
             "/var/log/pihole/FTL.log:Pi-hole FTL Log:remote"
             "/var/log/pihole/pihole.log:Pi-hole Log:remote"
@@ -2122,7 +2120,7 @@ get_log_info2() {
                     local_logs+=("✗ $name:Not Found")
                 fi
             else
-                remote_log=$(ssh "$REMOTE_USER@$REMOTE_HOST" "test -f $path && du -h $path || echo 'Not Found'")
+                remote_log=$(ssh "$REMOTE_USER@$pihole" "test -f $path && du -h $path || echo 'Not Found'")
                 if [[ $remote_log == *"Not Found"* ]]; then
                     remote_logs+=("✗ $name:Not Found")
                 else
@@ -2408,7 +2406,7 @@ log_message cyan "Local script completed."
 # Function to execute remote script and retrieve log
 execute_remote_script() {
     local remote_user="$1"
-    local remote_host="$2"
+    local pihole="$2"
     local remote_script_remote="$3"
     local remote_log="$4"
     local backup_log="$5"
@@ -2419,9 +2417,9 @@ execute_remote_script() {
     echo
 
     if check_dry_run_mode; then
-        echo "ssh $remote_user@$remote_host 'bash $remote_script_remote'"
+        echo "ssh $remote_user@$pihole 'bash $remote_script_remote'"
     else
-        if ! ssh "$remote_user@$remote_host" "bash \"$remote_script_remote\""; then
+        if ! ssh "$remote_user@$pihole" "bash \"$remote_script_remote\""; then
             handle_error "execute_remote_script" "Failed to execute $script_name script. Check permissions and script content."
             return 1
         fi
@@ -2432,9 +2430,9 @@ execute_remote_script() {
     echo
 
     if check_dry_run_mode; then
-        echo "scp $remote_user@$remote_host:$remote_log $backup_log"
+        echo "scp $remote_user@$pihole:$remote_log $backup_log"
     else
-        if scp "$remote_user@$remote_host:$remote_log" "$backup_log"; then
+        if scp "$remote_user@$pihole:$remote_log" "$backup_log"; then
             log_message cyan "Remote log backed up at $backup_log"
         else
             handle_error "execute_remote_script" "Failed to retrieve log file from $script_name"
@@ -2446,11 +2444,11 @@ execute_remote_script() {
 }
 
 # Run the remote scripts and retrieve logs
-execute_remote_script "$REMOTE_USER" "$REMOTE_HOST" "$REMOTE_SCRIPT_REMOTE" "$REMOTE_LOG" "$BACKUP_REMOTE_LOG" "Pi-hole HP Laptop"
+execute_remote_script "$REMOTE_USER" "$pihole" "$pihole_Remote" "$REMOTE_LOG" "$pihole_log" "Pi-hole HP Laptop"
 
-execute_remote_script "$REMOTE_USER" "$REMOTE_HOST2" "$REMOTE_SCRIPT_REMOTE2" "$REMOTE_LOG" "$BACKUP_REMOTE_LOG2" "Pi-hole2 HP Envy"
+execute_remote_script "$REMOTE_USER" "$pihole2" "$pihole2_Remote" "$REMOTE_LOG" "$pihole2_log" "Pi-hole2 HP Envy"
 
-execute_remote_script "$REMOTE_USER" "$REMOTE_HOST3" "$REMOTE_SCRIPT_REMOTE3" "$REMOTE_LOG" "$BACKUP_REMOTE_LOG3" "AGeorge-Backup HP Envy"
+execute_remote_script "$REMOTE_USER" "$AG_backup" "$AG_Backup_Remote" "$REMOTE_LOG" "$AG_Backup_log" "AGeorge-Backup HP Envy"
 
 backup_local_logs() {
     local log_file="$1"
@@ -2637,8 +2635,8 @@ setup_and_validate() {
     done
 
     # Validate remote access (basic check)
-    if ! ssh -o ConnectTimeout=5 "$REMOTE_USER@$REMOTE_HOST" exit &>/dev/null; then
-        handle_error "setup_and_validate" "Cannot connect to remote host $REMOTE_HOST as $REMOTE_USER. Please ensure SSH access is configured correctly."
+    if ! ssh -o ConnectTimeout=5 "$REMOTE_USER@$pihole" exit &>/dev/null; then
+        handle_error "setup_and_validate" "Cannot connect to remote host $pihole as $REMOTE_USER. Please ensure SSH access is configured correctly."
         return 1
     fi
 
@@ -2712,17 +2710,17 @@ get_log_info() {
             ;;
         "remote1")
 
-            remote_log=$(ssh "$REMOTE_USER@$REMOTE_HOST" "test -f '$path' && ${sudo_flag:+sudo }du -h '$path' || echo 'Not Found'")
+            remote_log=$(ssh "$REMOTE_USER@$pihole" "test -f '$path' && ${sudo_flag:+sudo }du -h '$path' || echo 'Not Found'")
             process_remote_log remote_logs1 "$name" "$remote_log"
             ;;
         "remote2")
 
-            remote_log=$(ssh "$REMOTE_USER@$REMOTE_HOST2" "test -f '$path' && ${sudo_flag:+sudo }du -h '$path' || echo 'Not Found'")
+            remote_log=$(ssh "$REMOTE_USER@$pihole2" "test -f '$path' && ${sudo_flag:+sudo }du -h '$path' || echo 'Not Found'")
             process_remote_log remote_logs2 "$name" "$remote_log"
             ;;
         "remote3")
 
-            remote_log=$(ssh "$REMOTE_USER@$REMOTE_HOST3" "test -f '$path' && ${sudo_flag:+sudo }du -h '$path' || echo 'Not Found'")
+            remote_log=$(ssh "$REMOTE_USER@$AG_backup" "test -f '$path' && ${sudo_flag:+sudo }du -h '$path' || echo 'Not Found'")
             process_remote_log remote_logs3 "$name" "$remote_log"
             ;;
         esac
@@ -2807,32 +2805,32 @@ scan_and_classify_logs() {
             fi
             ;;
         "remote1")
-            remote_log_scan "$REMOTE_USER" "$REMOTE_HOST" "$log_file" "$log_name" "$sudo_required"
+            remote_log_scan "$REMOTE_USER" "$pihole" "$log_file" "$log_name" "$sudo_required"
             ;;
         "remote2")
-            remote_log_scan "$REMOTE_USER" "$REMOTE_HOST2" "$log_file" "$log_name" "$sudo_required"
+            remote_log_scan "$REMOTE_USER" "$pihole2" "$log_file" "$log_name" "$sudo_required"
             ;;
         "remote3")
-            remote_log_scan "$REMOTE_USER" "$REMOTE_HOST3" "$log_file" "$log_name" "$sudo_required"
+            remote_log_scan "$REMOTE_USER" "$AG_backup" "$log_file" "$log_name" "$sudo_required"
             ;;
         esac
     }
 
     remote_log_scan() {
         local remote_user="$1"
-        local remote_host="$2"
+        local pihole="$2"
         local log_file="$3"
         local log_name="$4"
         local sudo_required="$5"
 
-        echo -e "\e[36mScanning Remote Log: $log_name on $remote_host\e[0m"
+        echo -e "\e[36mScanning Remote Log: $log_name on $pihole\e[0m"
         local ssh_command="export SUDO_ASKPASS='$SUDO_ASKPASS'; ${sudo_required:+sudo -A} cat '$log_file'"
-        if ssh -o BatchMode=no -o ConnectTimeout=5 "$remote_user@$remote_host" "$ssh_command" 2>/dev/null | process_log_content "$log_name"; then
+        if ssh -o BatchMode=no -o ConnectTimeout=5 "$remote_user@$pihole" "$ssh_command" 2>/dev/null | process_log_content "$log_name"; then
             :
         else
-            echo -e "\e[31m[ERROR]\e[0m Cannot read remote log file: $log_name on $remote_host"
+            echo -e "\e[31m[ERROR]\e[0m Cannot read remote log file: $log_name on $pihole"
             echo "PermissionError" >>"$temp_error_counts"
-            echo "[$(date)] Cannot read remote log file: $log_name on $remote_host" >>"$centralized_error_log"
+            echo "[$(date)] Cannot read remote log file: $log_name on $pihole" >>"$centralized_error_log"
         fi
     }
 
@@ -2868,7 +2866,7 @@ scan_and_classify_logs() {
 
     # Export the functions and variables for parallel execution
     export -f process_log process_log_content remote_log_scan
-    export centralized_error_log SEEN_ERRORS_FILE REMOTE_USER REMOTE_HOST REMOTE_HOST2 REMOTE_HOST3 SUDO_ASKPASS
+    export centralized_error_log SEEN_ERRORS_FILE REMOTE_USER pihole pihole2 AG_backup SUDO_ASKPASS
     export MAX_ERRORS
 
     # Run the log processing in parallel with 6 cores
