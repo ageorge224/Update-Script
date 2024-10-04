@@ -2086,8 +2086,6 @@ get_log_info2() {
         remote_logs=()
         local logs=(
             "$LOG_FILE:Local Update Log:local"
-            "$BACKUP_LOG_FILE:Backup Log File:local"
-            "$pihole_local:Remote Update Script (Local):local"
             "$pihole_Remote:Remote Update Script (Remote):remote"
             "/var/log/pihole/pihole_updateGravity.log:Pi-hole Gravity Update Log:remote"
             "/var/log/pihole/FTL.log:Pi-hole FTL Log:remote"
@@ -2486,7 +2484,7 @@ check_run_log
 log_message cyan "     {{[[[**Completed, Local Script finished.**]]]}}"
 
 # Variables
-SCRIPT_NAME="/home/ageorge/Desktop/Update-Script/local_update.sh" # Updated path
+SCRIPT_NAME="/home/ageorge/Desktop/Update-Script/local_update.sh"
 CHANGELOG_FILE="/home/ageorge/Documents/Backups/changelog.txt"
 
 # Check if changelog file and main script exist
