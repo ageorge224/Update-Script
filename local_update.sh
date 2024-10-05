@@ -318,11 +318,6 @@ check_and_create_remote_file() {
     local log_file="$3"
 
     ssh "$user_host" "
-        set -o errexit
-        set -o noglob
-        set -eE
-
-        trap 'echo \"Error occurred in remote operation on $user_host\"; exit 1' ERR
 
         # Check if file exists
         if [ ! -f \"$remote_path\" ]; then
