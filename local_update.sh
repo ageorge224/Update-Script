@@ -180,7 +180,7 @@ u_right="\e[36m╮\e[0m"
 b_left="\e[36m╰\e[0m"
 b_right="\e[36m╯\e[0m"
 v_bar="\e[36m│\e[0m"
-h_bar="-"
+h_bar="\e[36m─\e[0m"
 
 # Header creation and display function
 print_header() {
