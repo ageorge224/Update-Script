@@ -62,7 +62,7 @@ trap 'echo "Script terminated prematurely" >> "$RUN_LOG"; exit 1' SIGINT SIGTERM
 trap 'handle_error "SIGPIPE received" "$?"' SIGPIPE
 
 # Variables
-VERSION="1.2.9"
+VERSION="1.2.95"
 SCRIPT_NAME="local_update.sh"
 REMOTE_USER="ageorge"
 pihole="192.168.1.248"
@@ -1003,17 +1003,35 @@ check_restart_required() {
 
 check_restart_required
 
-# Check Unbound DNSSEC status
+# Check Unbound DNSSEC status with trimmed output and error handling
 dnssec_query() {
-    dig dnssec.works @pi.hole +dnssec
+    local result
+    # Use dig with the necessary flags to reduce output and avoid hanging
+    result=$(dig dnssec.works @pi.hole +dnssec +nocmd +noall +answer) || handle_error "dnssec_query" "Failed to query DNSSEC status." "dnssec_query"
+
+    if [[ -z "$result" ]]; then
+        handle_error "dnssec_query" "No valid DNSSEC response found." "dnssec_query"
+    fi
+
+    # Check if the result contains DNSSEC validation
+    if echo "$result" | grep -q "RRSIG"; then
+        echo "DNSSEC validation passed"
+    else
+        handle_error "dnssec_query" "DNSSEC validation failed." "dnssec_query"
+    fi
 }
 
-# Call the function
+# Call the function and store the result
 dnssec_result=$(dnssec_query)
 
-# Print the result
-echo "DNSSEC result for dnssec.works:"
-echo "$dnssec_result"
+# Print the result if no error occurred
+echo "DNSSEC result for dnssec.works: $dnssec_result"
+
+# Call the function and store the result
+dnssec_result=$(dnssec_query)
+
+# Print the result if no error occurred
+echo "DNSSEC result for dnssec.works: $dnssec_result"
 
 # Main execution
 main() {
@@ -1406,17 +1424,29 @@ check_restart_required() {
 
 check_restart_required
 
-# Check Unbound DNSSEC status
+# Check Unbound DNSSEC status with trimmed output and error handling
 dnssec_query() {
-    dig dnssec.works @pi.hole +dnssec
+    local result
+    # Use dig with the necessary flags to reduce output and avoid hanging
+    result=$(dig dnssec.works @pi.hole +dnssec +nocmd +noall +answer) || handle_error "dnssec_query" "Failed to query DNSSEC status." "dnssec_query"
+
+    if [[ -z "$result" ]]; then
+        handle_error "dnssec_query" "No valid DNSSEC response found." "dnssec_query"
+    fi
+
+    # Check if the result contains DNSSEC validation
+    if echo "$result" | grep -q "RRSIG"; then
+        echo "DNSSEC validation passed"
+    else
+        handle_error "dnssec_query" "DNSSEC validation failed." "dnssec_query"
+    fi
 }
 
-# Call the function
+# Call the function and store the result
 dnssec_result=$(dnssec_query)
 
-# Print the result
-echo "DNSSEC result for dnssec.works:"
-echo "$dnssec_result"
+# Print the result if no error occurred
+echo "DNSSEC result for dnssec.works: $dnssec_result"
 
 # Main execution
 main() {
@@ -2250,17 +2280,29 @@ get_system_identification() {
 get_system_identification
 get_log_info2
 
-# Check Unbound DNSSEC status
+# Check Unbound DNSSEC status with trimmed output and error handling
 dnssec_query() {
-    dig dnssec.works @pi.hole +dnssec
+    local result
+    # Use dig with the necessary flags to reduce output and avoid hanging
+    result=$(dig dnssec.works @pi.hole +dnssec +nocmd +noall +answer) || handle_error "dnssec_query" "Failed to query DNSSEC status." "dnssec_query"
+
+    if [[ -z "$result" ]]; then
+        handle_error "dnssec_query" "No valid DNSSEC response found." "dnssec_query"
+    fi
+
+    # Check if the result contains DNSSEC validation
+    if echo "$result" | grep -q "RRSIG"; then
+        echo "DNSSEC validation passed"
+    else
+        handle_error "dnssec_query" "DNSSEC validation failed." "dnssec_query"
+    fi
 }
 
-# Call the function
+# Call the function and store the result
 dnssec_result=$(dnssec_query)
 
-# Print the result
-echo "DNSSEC result for dnssec.works:"
-echo "$dnssec_result"
+# Print the result if no error occurred
+echo "DNSSEC result for dnssec.works: $dnssec_result"
 
 # Function to backup the script only if it's changed
 backup_script() {
