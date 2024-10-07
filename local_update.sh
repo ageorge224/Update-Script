@@ -1027,12 +1027,6 @@ dnssec_result=$(dnssec_query)
 # Print the result if no error occurred
 echo "DNSSEC result for dnssec.works: $dnssec_result"
 
-# Call the function and store the result
-dnssec_result=$(dnssec_query)
-
-# Print the result if no error occurred
-echo "DNSSEC result for dnssec.works: $dnssec_result"
-
 # Main execution
 main() {
     log_message blue "Starting $HostnameID update process"
