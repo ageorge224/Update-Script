@@ -62,7 +62,7 @@ trap 'echo "Script terminated prematurely" >> "$RUN_LOG"; exit 1' SIGINT SIGTERM
 trap 'handle_error "SIGPIPE received" "$?"' SIGPIPE
 
 # Variables
-VERSION="1.2.95"
+VERSION="1.2.96"
 SCRIPT_NAME="local_update.sh"
 REMOTE_USER="ageorge"
 pihole="192.168.1.248"
@@ -2889,6 +2889,9 @@ scan_and_classify_logs() {
         echo "$errors" >>"$LOCAL_UPDATE_ERROR"
         echo "$errors" >>"$SEEN_ERRORS_FILE"
     }
+
+    cat "$SEEN_ERRORS_FILE" >>"$LOCAL_UPDATE_ERROR"
+    cat "$centralized_error_log" >>"$LOCAL_UPDATE_ERROR"
 
     # Export the functions and variables for parallel execution
     export -f process_log process_log_content remote_log_scan
