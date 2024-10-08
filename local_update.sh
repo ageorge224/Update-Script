@@ -14,7 +14,6 @@ LOCAL_UPDATE_DEBUG="${LOCAL_UPDATE_DEBUG:-/default/local_update_debug.log}"
 BACKUP_LOG_DIR="${BACKUP_LOG_DIR:-/default/backup_log_dir}"
 BACKUP_LOG_FILE="${BACKUP_LOG_FILE:-/default/backup_log_file.log}"
 
-
 # Enable error trapping
 set -o errexit # Enable strict error checking
 #set -o nounset # Exit if an unset variable is used
@@ -77,7 +76,7 @@ trap 'echo "Script terminated prematurely" >> "$RUN_LOG"; exit 1' SIGINT SIGTERM
 trap 'handle_error "SIGPIPE received" "$?"' SIGPIPE
 
 # Variables
-VERSION="1.2.96"
+VERSION="1.2.98"
 SCRIPT_NAME="local_update.sh"
 REMOTE_USER="ageorge"
 pihole="192.168.1.248"
@@ -2667,7 +2666,7 @@ update_changelog "$CHANGELOG_FILE" "$SCRIPT_NAME" "$VERSION"
 # shellcheck disable=SC1090
 # Function to source files from a specific directory
 source_from_dir() {
-  local file="${2:-default_file}"
+    local file="${2:-default_file}"
     local dir="$1"
     local file="${2:-check}"
     if [[ -d "$dir" && -f "$dir/$file" ]]; then
