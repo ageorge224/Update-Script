@@ -1,5 +1,20 @@
 #!/bin/bash
 
+# Initialize unset variables with defaults
+AG_backup="${AG_backup:-192.168.1.238}"
+BACKUP_DIR="${BACKUP_DIR:-/default/backup/dir}"
+LOG_FILE="${LOG_FILE:-/default/log/file.log}"
+REMOTE_USER="${REMOTE_USER:-ageorge}"
+VERSION="${VERSION:-1.0.0}"
+CHANGELOG_FILE="${CHANGELOG_FILE:-/default/changelog.txt}"
+REMOTE_LOG="${REMOTE_LOG:-/default/remote_log.txt}"
+RUN_LOG="${RUN_LOG:-/default/run_log.txt}"
+LOCAL_UPDATE_ERROR="${LOCAL_UPDATE_ERROR:-/default/local_update_error.log}"
+LOCAL_UPDATE_DEBUG="${LOCAL_UPDATE_DEBUG:-/default/local_update_debug.log}"
+BACKUP_LOG_DIR="${BACKUP_LOG_DIR:-/default/backup_log_dir}"
+BACKUP_LOG_FILE="${BACKUP_LOG_FILE:-/default/backup_log_file.log}"
+
+
 # Enable error trapping
 set -o errexit # Enable strict error checking
 #set -o nounset # Exit if an unset variable is used
@@ -8,7 +23,7 @@ set -eE
 
 handle_error() {
     local func_name="$1"
-    local err="$2"
+    local err="${2:-check}"
     local retry_command="$3"
     local retry_count=0
     local max_retries=3
@@ -62,7 +77,7 @@ trap 'echo "Script terminated prematurely" >> "$RUN_LOG"; exit 1' SIGINT SIGTERM
 trap 'handle_error "SIGPIPE received" "$?"' SIGPIPE
 
 # Variables
-VERSION="1.2.98"
+VERSION="1.2.96"
 SCRIPT_NAME="local_update.sh"
 REMOTE_USER="ageorge"
 pihole="192.168.1.248"
@@ -231,7 +246,7 @@ print_header() {
 
     print_wrapped_text() {
         local text="$1"
-        local prefix="$2"
+        local prefix="${2:-check}"
         local max_length=$((content_width - ${#prefix}))
         local line=""
         for word in $text; do
@@ -314,7 +329,7 @@ conditional_echo() {
 # Function to check file existence, create if needed, and set permissions
 check_and_create_remote_file() {
     local user_host="$1"
-    local remote_path="$2"
+    local remote_path="${2:-check}"
     local log_file="$3"
 
     ssh "$user_host" "
@@ -573,11 +588,11 @@ verify_file_path() {
     local dir
     dir=$(dirname "$file")
     verify_and_create_directory "$dir"
-    if [[ ! -f "$file" && "$2" != "create" ]]; then
+    if [[ ! -f "$file" && "${2:-check}" != "create" ]]; then
         log_message red "File does not exist: $file"
         exit 1
     fi
-    if [[ "$2" == "create" && ! -f "$file" ]]; then
+    if [[ "${2:-check}" == "create" && ! -f "$file" ]]; then
         touch "$file" || {
             log_message red "Failed to create file: $file"
             exit 1
@@ -704,6 +719,21 @@ create_remote_script3() {
     cat <<'EOF' >"$AG_Backup_local"
 #!/bin/bash
 
+# Initialize unset variables with defaults
+AG_backup="${AG_backup:-192.168.1.238}"
+BACKUP_DIR="${BACKUP_DIR:-/default/backup/dir}"
+LOG_FILE="${LOG_FILE:-/default/log/file.log}"
+REMOTE_USER="${REMOTE_USER:-ageorge}"
+VERSION="${VERSION:-1.0.0}"
+CHANGELOG_FILE="${CHANGELOG_FILE:-/default/changelog.txt}"
+REMOTE_LOG="${REMOTE_LOG:-/default/remote_log.txt}"
+RUN_LOG="${RUN_LOG:-/default/run_log.txt}"
+LOCAL_UPDATE_ERROR="${LOCAL_UPDATE_ERROR:-/default/local_update_error.log}"
+LOCAL_UPDATE_DEBUG="${LOCAL_UPDATE_DEBUG:-/default/local_update_debug.log}"
+BACKUP_LOG_DIR="${BACKUP_LOG_DIR:-/default/backup_log_dir}"
+BACKUP_LOG_FILE="${BACKUP_LOG_FILE:-/default/backup_log_file.log}"
+
+
 # Enable error trapping
 set -o errexit # Enable strict error checking
 #set -o nounset # Exit if an unset variable is used
@@ -712,7 +742,7 @@ set -eE
 
 handle_error() {
     local func_name="$1"
-    local err="$2"
+    local err="${2:-check}"
     local retry_command="$3"
     local retry_count=0
     local max_retries=3
@@ -849,10 +879,10 @@ verify_file_path() {
     if ! verify_and_create_directory "$dir"; then
         handle_error "verify_file_path" "Failed to verify/create directory for file: $file"
     fi
-    if [[ ! -f "$file" && "$2" != "create" ]]; then
+    if [[ ! -f "$file" && "${2:-check}" != "create" ]]; then
         handle_error "verify_file_path" "File does not exist: $file"
     fi
-    if [[ "$2" == "create" && ! -f "$file" ]]; then
+    if [[ "${2:-check}" == "create" && ! -f "$file" ]]; then
         if [[ "$DRY_RUN" != "true" ]]; then
             if ! touch "$file"; then
                 handle_error "verify_file_path" "Failed to create file: $file"
@@ -1063,7 +1093,7 @@ main
 # Function to execute rsync with error handling
 rsync_with_error_handling() {
   local source="$1"
-  local destination="$2"
+  local destination="${2:-check}"
 
   # Execute rsync with -avz options and capture output
   rsync -avz "$source" "$destination" &> /tmp/rsync_output
@@ -1119,6 +1149,21 @@ create_remote_script2() {
     cat <<'EOF' >"$pihole2_local"
 #!/bin/bash
 
+# Initialize unset variables with defaults
+AG_backup="${AG_backup:-192.168.1.238}"
+BACKUP_DIR="${BACKUP_DIR:-/default/backup/dir}"
+LOG_FILE="${LOG_FILE:-/default/log/file.log}"
+REMOTE_USER="${REMOTE_USER:-ageorge}"
+VERSION="${VERSION:-1.0.0}"
+CHANGELOG_FILE="${CHANGELOG_FILE:-/default/changelog.txt}"
+REMOTE_LOG="${REMOTE_LOG:-/default/remote_log.txt}"
+RUN_LOG="${RUN_LOG:-/default/run_log.txt}"
+LOCAL_UPDATE_ERROR="${LOCAL_UPDATE_ERROR:-/default/local_update_error.log}"
+LOCAL_UPDATE_DEBUG="${LOCAL_UPDATE_DEBUG:-/default/local_update_debug.log}"
+BACKUP_LOG_DIR="${BACKUP_LOG_DIR:-/default/backup_log_dir}"
+BACKUP_LOG_FILE="${BACKUP_LOG_FILE:-/default/backup_log_file.log}"
+
+
 # Enable error trapping
 set -o errexit # Enable strict error checking
 #set -o nounset # Exit if an unset variable is used
@@ -1127,7 +1172,7 @@ set -eE
 
 handle_error() {
     local func_name="$1"
-    local err="$2"
+    local err="${2:-check}"
     local retry_command="$3"
     local retry_count=0
     local max_retries=3
@@ -1264,10 +1309,10 @@ verify_file_path() {
     if ! verify_and_create_directory "$dir"; then
         handle_error "verify_file_path" "Failed to verify/create directory for file: $file"
     fi
-    if [[ ! -f "$file" && "$2" != "create" ]]; then
+    if [[ ! -f "$file" && "${2:-check}" != "create" ]]; then
         handle_error "verify_file_path" "File does not exist: $file"
     fi
-    if [[ "$2" == "create" && ! -f "$file" ]]; then
+    if [[ "${2:-check}" == "create" && ! -f "$file" ]]; then
         if [[ "$DRY_RUN" != "true" ]]; then
             if ! touch "$file"; then
                 handle_error "verify_file_path" "Failed to create file: $file"
@@ -1478,7 +1523,7 @@ main
 # Function to execute rsync with error handling
 rsync_with_error_handling() {
   local source="$1"
-  local destination="$2"
+  local destination="${2:-check}"
 
   # Execute rsync with -avz options and capture output
   rsync -avz "$source" "$destination" &> /tmp/rsync_output
@@ -1533,6 +1578,21 @@ create_remote_script() {
     cat <<'EOF' >"$pihole_local"
 #!/bin/bash
 
+# Initialize unset variables with defaults
+AG_backup="${AG_backup:-192.168.1.238}"
+BACKUP_DIR="${BACKUP_DIR:-/default/backup/dir}"
+LOG_FILE="${LOG_FILE:-/default/log/file.log}"
+REMOTE_USER="${REMOTE_USER:-ageorge}"
+VERSION="${VERSION:-1.0.0}"
+CHANGELOG_FILE="${CHANGELOG_FILE:-/default/changelog.txt}"
+REMOTE_LOG="${REMOTE_LOG:-/default/remote_log.txt}"
+RUN_LOG="${RUN_LOG:-/default/run_log.txt}"
+LOCAL_UPDATE_ERROR="${LOCAL_UPDATE_ERROR:-/default/local_update_error.log}"
+LOCAL_UPDATE_DEBUG="${LOCAL_UPDATE_DEBUG:-/default/local_update_debug.log}"
+BACKUP_LOG_DIR="${BACKUP_LOG_DIR:-/default/backup_log_dir}"
+BACKUP_LOG_FILE="${BACKUP_LOG_FILE:-/default/backup_log_file.log}"
+
+
 # Enable error trapping
 set -o errexit # Enable strict error checking
 #set -o nounset # Exit if an unset variable is used
@@ -1541,7 +1601,7 @@ set -eE
 
 handle_error() {
     local func_name="$1"
-    local err="$2"
+    local err="${2:-check}"
     local retry_command="$3"
     local retry_count=0
     local max_retries=3
@@ -1677,10 +1737,10 @@ verify_file_path() {
     if ! verify_and_create_directory "$dir"; then
         handle_error "verify_file_path" "Failed to verify/create directory for file: $file"
     fi
-    if [[ ! -f "$file" && "$2" != "create" ]]; then
+    if [[ ! -f "$file" && "${2:-check}" != "create" ]]; then
         handle_error "verify_file_path" "File does not exist: $file"
     fi
-    if [[ "$2" == "create" && ! -f "$file" ]]; then
+    if [[ "${2:-check}" == "create" && ! -f "$file" ]]; then
         if [[ "$DRY_RUN" != "true" ]]; then
             if ! touch "$file"; then
                 handle_error "verify_file_path" "Failed to create file: $file"
@@ -1912,7 +1972,7 @@ main
 # Function to execute rsync with error handling
 rsync_with_error_handling() {
   local source="$1"
-  local destination="$2"
+  local destination="${2:-check}"
 
   # Execute rsync with -avz options and capture output
   rsync -avz "$source" "$destination" &> /tmp/rsync_output
@@ -2435,7 +2495,7 @@ log_message cyan "Local script completed."
 # Function to execute remote script and retrieve log
 execute_remote_script() {
     local remote_user="$1"
-    local pihole="$2"
+    local pihole="${2:-check}"
     local remote_script_remote="$3"
     local remote_log="$4"
     local backup_log="$5"
@@ -2481,7 +2541,7 @@ execute_remote_script "$REMOTE_USER" "$AG_backup" "$AG_Backup_Remote" "$REMOTE_L
 
 backup_local_logs() {
     local log_file="$1"
-    local backup_dir="$2"
+    local backup_dir="${2:-check}"
     local backup_log_file="$3"
     local timestamp
     timestamp=$(date +%Y%m%d%H%M%S)
@@ -2532,7 +2592,7 @@ fi
 # Function to update changelog
 update_changelog() {
     local changelog_file="$1"
-    local main_script="$2"
+    local main_script="${2:-default_script}"
     local current_version="$3"
     # Check if changelog file, main script, and version are provided
     if [[ -z "$changelog_file" || -z "$main_script" || -z "$current_version" ]]; then
@@ -2607,8 +2667,9 @@ update_changelog "$CHANGELOG_FILE" "$SCRIPT_NAME" "$VERSION"
 # shellcheck disable=SC1090
 # Function to source files from a specific directory
 source_from_dir() {
+  local file="${2:-default_file}"
     local dir="$1"
-    local file="$2"
+    local file="${2:-check}"
     if [[ -d "$dir" && -f "$dir/$file" ]]; then
         source "$dir/$file"
         # Add a directive to specify the location of the sourced file
@@ -2811,7 +2872,7 @@ scan_and_classify_logs() {
     # Define a function to process each log file
     process_log() {
         local log_file="$1"
-        local log_name="$2"
+        local log_name="${2:-check}"
         local log_type="$3"
         local sudo_required="${4:-}"
         local last_position=0
@@ -2847,7 +2908,7 @@ scan_and_classify_logs() {
 
     remote_log_scan() {
         local remote_user="$1"
-        local pihole="$2"
+        local pihole="${2:-check}"
         local log_file="$3"
         local log_name="$4"
         local sudo_required="$5"
