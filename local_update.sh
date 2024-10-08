@@ -62,7 +62,7 @@ trap 'echo "Script terminated prematurely" >> "$RUN_LOG"; exit 1' SIGINT SIGTERM
 trap 'handle_error "SIGPIPE received" "$?"' SIGPIPE
 
 # Variables
-VERSION="1.2.96"
+VERSION="1.2.98"
 SCRIPT_NAME="local_update.sh"
 REMOTE_USER="ageorge"
 pihole="192.168.1.248"
@@ -2520,13 +2520,13 @@ CHANGELOG_FILE="/home/ageorge/Documents/Backups/changelog.txt"
 
 # Check if changelog file and main script exist
 if [[ ! -f "$CHANGELOG_FILE" ]]; then
-    echo "Changelog file does not exist: $CHANGELOG_FILE"
-    exit 1
+    handle_error "update_changelog" "Changelog file does not exist: $CHANGELOG_FILE"
+    return 1
 fi
 
 if [[ ! -f "$SCRIPT_NAME" ]]; then
-    echo "Main script does not exist: $SCRIPT_NAME"
-    exit 1
+    handle_error "update_changelog" "Main script does not exist: $SCRIPT_NAME"
+    return 1
 fi
 
 # Function to update changelog
