@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Variables
-VERSION="1.2.9"
+
 SCRIPT_NAME="local_update.sh"
 REMOTE_USER="ageorge"
 pihole="192.168.1.248"
