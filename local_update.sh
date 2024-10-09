@@ -198,8 +198,8 @@ h_bar="\e[36m─\e[0m"
 
 # Header creation and display function
 print_header() {
-    local script_name=$SCRIPT_NAME
-    local version=$VERSION
+    local script_name="local_update.sh"
+    local version="v1.2.98"
     local author="Anthony George"
     local description="A script for performing local and remote system updates with backup functionality"
     local date
@@ -215,13 +215,7 @@ print_header() {
         temp_width=$((${#date} + ${#author} + 15))
         [[ $temp_width -gt $max_width ]] && max_width=$temp_width
 
-        local vars=("REMOTE_USER"
-            "pihole"
-            "BACKUP_DIR"
-            "BACKUP_DIR2"
-            "LOG_FILE"
-            "BACKUP_LOG_FILE"
-            "DRY_RUN")
+        local vars=("REMOTE_USER" "pihole" "BACKUP_DIR" "BACKUP_DIR2" "LOG_FILE" "BACKUP_LOG_FILE" "DRY_RUN")
         for var in "${vars[@]}"; do
             value="${!var}"
             temp_width=$((${#var} + ${#value} + 24))
@@ -236,11 +230,15 @@ print_header() {
     local content_width=$((width - 2)) # Subtract 2 for the left and right borders
 
     print_line() {
-        printf "\e[36m%s\e[0m\n" "$(printf "%${width}s" | tr ' ' "${h_bar}")"
+        printf '%b' "${h_bar}"
+        for ((i = 1; i < width; i++)); do
+            printf '%b' "${h_bar}"
+        done
+        printf '\n'
     }
 
     print_content_line() {
-        printf "\e[36m|\e[0m %-${content_width}s \e[36m|\e[0m\n" "$1"
+        printf '%b %-*s %b\n' "${v_bar}" "$content_width" "$1" "${v_bar}"
     }
 
     print_wrapped_text() {
@@ -261,8 +259,10 @@ print_header() {
         [[ -n $line ]] && print_content_line "$(printf "%-${#prefix}s%s" "$prefix" "$line")"
     }
 
-    echo -e "\e[36m+$(printf "%${width}s" | tr ' ' "${h_bar}")+\e[0m"
-    printf "\e[36m|\e[1;33m %-${content_width}s \e[36m|\e[0m\n" "$script_name v$version"
+    # Print the box
+    printf '%b' "${u_left}"
+    print_line
+    printf '%b' "${v_bar} ${script_name} ${version} ${v_bar}\n"
     print_line
     print_content_line "$(printf "%-15s\e[32m%s" "Date:" "$date")"
     print_content_line "$(printf "%-15s\e[32m%s" "Author:" "$author")"
@@ -270,18 +270,13 @@ print_header() {
     print_wrapped_text "$description" "Description: "
     print_line
     print_content_line "\e[1mConfiguration Variables:"
-    local vars=("REMOTE_USER"
-        "pihole"
-        "BACKUP_DIR"
-        "BACKUP_DIR2"
-        "LOG_FILE"
-        "BACKUP_LOG_FILE"
-        "DRY_RUN")
     for var in "${vars[@]}"; do
         value="${!var}"
         print_content_line "$(printf "%-20s \e[32m%s" "$var:" "$value")"
     done
-    echo -e "\e[36m+$(printf "%${width}s" | tr ' ' "${h_bar}")+\e[0m"
+    printf '%b' "${b_left}"
+    print_line
+    printf '%b\n' "${b_right}"
     echo
 }
 
@@ -2998,6 +2993,8 @@ date +%s >"$LAST_RUN_FILE"
 if [ -f "$SEEN_ERRORS_FILE" ]; then
     tail -n 10000 "$SEEN_ERRORS_FILE" >"${SEEN_ERRORS_FILE}.tmp" && mv "${SEEN_ERRORS_FILE}.tmp" "$SEEN_ERRORS_FILE"
 fi
+
+#!/bin/bash
 
 # Define the box characters with color codes
 u_left="\e[36m╭\e[0m"
