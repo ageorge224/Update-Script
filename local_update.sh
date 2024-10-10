@@ -77,6 +77,9 @@ trap 'handle_error "SIGPIPE received" "$?"' SIGPIPE
 
 # Variables
 VERSION="1.2.98"
+DRY_RUN=false
+
+# Constants
 SCRIPT_NAME="local_update.sh"
 REMOTE_USER="ageorge"
 pihole="192.168.1.248"
@@ -108,7 +111,6 @@ SEEN_ERRORS_FILE="$BACKUP_LOG_DIR/seen_errors.log"
 CACHE_DIR="$HOME/.logscan_cache"
 temp_error_counts="$CACHE_DIR/temp_error_counts.txt"
 LAST_RUN_FILE="$CACHE_DIR/last_run"
-DRY_RUN=false
 
 # Function to log messages with color
 log_message() {
