@@ -79,7 +79,7 @@ trap 'handle_error "SIGPIPE received" "$?"' SIGPIPE
 VERSION="1.2.98"
 DRY_RUN=false
 
-# Constants
+# VConstants
 SCRIPT_NAME="local_update.sh"
 REMOTE_USER="ageorge"
 pihole="192.168.1.248"
