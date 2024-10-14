@@ -33,7 +33,6 @@ SEEN_ERRORS_FILE="$BACKUP_LOG_DIR/seen_errors.log"
 CACHE_DIR="$HOME/.logscan_cache"
 temp_error_counts="$CACHE_DIR/temp_error_counts.txt"
 LAST_RUN_FILE="$CACHE_DIR/last_run"
-DRY_RUN=false
 
 # Function to get the last position from a cached file
 get_last_position() {
