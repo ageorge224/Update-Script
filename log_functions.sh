@@ -53,5 +53,30 @@ set_last_position() {
     echo "$position" >"$position_file"
 }
 
+# shellcheck disable=SC1090
+# Function to load exclusions from a config file
+load_exclusions() {
+    local config_file="${1:-/home/ageorge/Desktop/Update-Script/exclusions_config}"
+    if [[ -f "$config_file" ]]; then
+        # Source the file to load the exclusions array
+        source "$config_file"
+    else
+        exclusions=() # Initialize an empty array if the file doesn't exist
+    fi
+}
+
+# Function to save exclusions to a config file
+save_exclusions() {
+    local config_file="${1:-/home/ageorge/Desktop/Update-Script/exclusions_config}"
+    # Write the exclusions array to the file
+    {
+        echo "exclusions=("
+        for exclusion in "${exclusions[@]}"; do
+            echo "    \"$exclusion\""
+        done
+        echo ")"
+    } >"$config_file"
+}
+
 # Ensure SUDO_ASKPASS is set
 export SUDO_ASKPASS="$HOME/sudo_askpass.sh"

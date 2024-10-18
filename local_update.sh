@@ -1,5 +1,22 @@
 #!/bin/bash
 
+# shellcheck disable=SC1090
+# Function to source files from a specific directory
+source_from_dir() {
+    local dir="$1"
+    local file="${2:-default_file}"
+    if [[ -d "$dir" && -f "$dir/$file" ]]; then
+        source "$dir/$file"
+    else
+        echo "Error: File $file not found in directory $dir" >&2
+        exit 1
+    fi
+}
+
+# Source your log_functions.sh file using the function
+source_from_dir "/home/ageorge/Desktop/Update-Script" "log_functions.sh"
+load_exclusions
+
 # Initialize unset variables with defaults
 AG_backup="${AG_backup:-192.168.1.238}"
 BACKUP_DIR="${BACKUP_DIR:-/default/backup/dir}"
@@ -14,12 +31,6 @@ LOCAL_UPDATE_DEBUG="${LOCAL_UPDATE_DEBUG:-/default/local_update_debug.log}"
 BACKUP_LOG_DIR="${BACKUP_LOG_DIR:-/default/backup_log_dir}"
 BACKUP_LOG_FILE="${BACKUP_LOG_FILE:-/default/backup_log_file.log}"
 
-# Enable error trapping
-set -o errexit # Enable strict error checking
-#set -o nounset # Exit if an unset variable is used
-set -o noglob # Disable filename expansion
-set -eE
-
 handle_error() {
     local func_name="$1"
     local err="${2:-check}"
@@ -30,8 +41,6 @@ handle_error() {
 
     # Log the error message
     log_message red "Error in function '${func_name}': ${err}"
-
-    # Write the error to a specific error log file
     echo "Error in function '${func_name}': ${err}" >>"$LOCAL_UPDATE_ERROR"
 
     # Generate backtrace
@@ -41,27 +50,28 @@ handle_error() {
         ((i++))
     done
 
-    # Temporarily disable errexit
+    # Disable 'errexit' temporarily for retry logic
     set +e
+
+    # Define a temporary function that encapsulates the retry command
+    temp_retry() {
+        eval "$retry_command"
+    }
 
     # Implement retry logic
     while [[ $retry_count -lt $max_retries ]]; do
         log_message yellow "Retrying after error... Attempt $((retry_count + 1))/$max_retries"
 
-        # Retry the failed operation
-        if eval "$retry_command"; then
+        if temp_retry; then
             log_message green "Retried successfully on attempt $((retry_count + 1))"
             return 0
         fi
 
-        # Increase the retry count
         ((retry_count++))
-
-        # Optional: Add a delay between retries (e.g., 5 seconds)
         sleep 5
     done
 
-    # Re-enable errexit
+    # Re-enable 'errexit'
     set -e
 
     # If all retries fail, log the failure, print the backtrace, and exit the script
@@ -70,13 +80,8 @@ handle_error() {
     exit 1
 }
 
-# Trap errors and signals
-trap 'handle_error "$BASH_COMMAND" "$?"' ERR
-trap 'echo "Script terminated prematurely" >> "$RUN_LOG"; exit 1' SIGINT SIGTERM
-trap 'handle_error "SIGPIPE received" "$?"' SIGPIPE
-
 # Variables
-VERSION="1.2.98"
+VERSION="1.2.992"
 DRY_RUN=false
 
 # VConstants
@@ -135,6 +140,8 @@ log_message() {
     esac
     echo -e "${color_code}${message}\e[0m" | tee -a "$LOG_FILE"
 }
+# Example usage (assuming log_functions.sh defines functions for logging)
+log_message "This script is located in $(dirname "$0")"
 
 # Function to check dry-run mode and return a status code
 check_dry_run_mode() {
@@ -2660,25 +2667,6 @@ update_changelog() {
 # Call the function with the existing VERSION variable
 update_changelog "$CHANGELOG_FILE" "$SCRIPT_NAME" "$VERSION"
 
-# shellcheck disable=SC1090
-# Function to source files from a specific directory
-source_from_dir() {
-    local file="${2:-default_file}"
-    local dir="$1"
-    local file="${2:-check}"
-    if [[ -d "$dir" && -f "$dir/$file" ]]; then
-        source "$dir/$file"
-        # Add a directive to specify the location of the sourced file
-        . "$dir/$file"
-    else
-        echo "Error: File $file not found in directory $dir" >&2
-        exit 1
-    fi
-}
-
-# Source your log_functions.sh file using the function
-source_from_dir "/home/ageorge/Desktop/Update-Script" "log_functions.sh"
-
 # Example usage (assuming log_functions.sh defines functions for logging)
 log_message "This script is located in $(dirname "$0")"
 
@@ -2853,16 +2841,57 @@ print_log_table() {
     echo -e "\n"
 }
 
-# Function to scan and classify logs
+# Function to check if an item exists in an array
+array_contains() {
+    local element
+    for element in "${@:2}"; do
+        if [[ "$element" == "$1" ]]; then
+            return 0 # Item exists in the array
+        fi
+    done
+    return 1 # Item does not exist in the array
+}
+
+# Function to display errors and allow selection for exclusion
+select_errors_for_exclusion() {
+    local error_list=("$@")   # Array of errors passed to the function
+    local temp_file=$(mktemp) # Temporary file for dialog selection
+
+    # Prepare dialog input format (index + error line)
+    local dialog_input=()
+    for i in "${!error_list[@]}"; do
+        dialog_input+=("$i" "${error_list[$i]}")
+    done
+
+    # Use dialog to display a checklist for error selection
+    dialog --checklist "Select errors to add to the exclusion list:" 0 0 10 \
+        "${dialog_input[@]}" 2>"$temp_file"
+
+    # Read the selected indices
+    local selected_indices
+    read -r -a selected_indices <"$temp_file"
+    rm -f "$temp_file"
+
+    # Add selected errors to the exclusions array, avoiding duplicates
+    for index in "${selected_indices[@]}"; do
+        local error_to_add="${error_list[index]}"
+        if ! array_contains "$error_to_add" "${exclusions[@]}"; then
+            exclusions+=("$error_to_add")
+        fi
+    done
+
+    # Save the updated exclusions array
+    save_exclusions
+}
+
+# Modified scan_and_classify_logs function
 scan_and_classify_logs() {
     log_files=("${logs[@]}")
-    true >"$temp_error_counts" #Clear the temporary file
+    true >"$temp_error_counts" # Clear the temporary file
     position_file="$CACHE_DIR/"
     basename_result=$(basename "$log_file")
     position_file+="$basename_result.pos"
-    # Add a timestamp for this run
     echo -e "\n--- Scan started at $(date) ---" >>"$centralized_error_log"
-
     echo -e "\n\e[36mScanning Logs:\e[0m"
 
     # Define a function to process each log file
@@ -2920,7 +2949,6 @@ scan_and_classify_logs() {
         fi
     }
 
-    # Define the maximum number of error lines to display
     MAX_ERRORS=10
     error_count=0
     timestamp=$(date)
@@ -2930,23 +2958,43 @@ scan_and_classify_logs() {
         local errors=""
         while IFS= read -r line; do
             if [[ "$line" =~ [Ee]rror|[Ee]xception|[Ff]ailed|[Ff]ailure ]]; then
-                error_message="[$timestamp] $log_name: $line"
-                echo -e "\e[31m[ERROR]\e[0m $error_message"
-                errors+="$error_message"$'\n'
+                local exclude=false
+                for exclusion in "${exclusions[@]}"; do
+                    if [[ "$line" =~ "$exclusion" ]]; then
+                        exclude=true
+                        break
+                    fi
+                done
 
-                ((error_count++))
-                if [[ $error_count -ge $MAX_ERRORS ]]; then
-                    break
+                if [[ "$exclude" == false ]]; then
+                    error_message="[$timestamp] $log_name: $line"
+                    echo -e "\e[31m[ERROR]\e[0m $error_message"
+                    errors+="$error_message"$'\n'
+
+                    ((error_count++))
+                    if [[ $error_count -ge $MAX_ERRORS ]]; then
+                        break
+                    fi
                 fi
             fi
         done
 
-        # Write all errors at once to avoid multiple disk writes
         echo "$errors" >>"$centralized_error_log"
         echo "$errors" >>"$LOCAL_UPDATE_ERROR"
         echo "$errors" >>"$SEEN_ERRORS_FILE"
     }
 
+    # Collect errors and offer exclusion option
+    local all_errors=()
+    while IFS= read -r error; do
+        all_errors+=("$error")
+    done <"$centralized_error_log"
+
+    if [[ ${#all_errors[@]} -gt 0 ]]; then
+        select_errors_for_exclusion "${all_errors[@]}"
+    fi
+
+    # Dump accumulated logs to the error log
     cat "$SEEN_ERRORS_FILE" >>"$LOCAL_UPDATE_ERROR"
     cat "$centralized_error_log" >>"$LOCAL_UPDATE_ERROR"
 
@@ -2962,7 +3010,7 @@ scan_and_classify_logs() {
     declare -A error_counts
     total_errors=0
     while IFS= read -r error_type; do
-        if [[ -n "$error_type" ]]; then # Check if error_type is not empty
+        if [[ -n "$error_type" ]]; then
             ((error_counts[$error_type]++))
             ((total_errors++))
         fi
@@ -2980,6 +3028,7 @@ scan_and_classify_logs() {
     echo -e "--- Scan completed at $(date) ---\n" >>"$centralized_error_log"
 }
 
+# Make sure the function closes properly and avoid unintentional commands after it.
 # Call the get_log_info function
 get_log_info
 
@@ -2995,8 +3044,6 @@ date +%s >"$LAST_RUN_FILE"
 if [ -f "$SEEN_ERRORS_FILE" ]; then
     tail -n 10000 "$SEEN_ERRORS_FILE" >"${SEEN_ERRORS_FILE}.tmp" && mv "${SEEN_ERRORS_FILE}.tmp" "$SEEN_ERRORS_FILE"
 fi
-
-#!/bin/bash
 
 # Define the box characters with color codes
 u_left="\e[36m╭\e[0m"

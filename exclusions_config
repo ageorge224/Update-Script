@@ -1,0 +1,5 @@
+exclusions=(
+    "No errors detected during"
+    "Starting apport-autoreport.service"
+    "Finished apport-autoreport.service"
+)
