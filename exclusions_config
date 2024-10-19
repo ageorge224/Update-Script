@@ -2,4 +2,6 @@ exclusions=(
     "No errors detected during"
     "Starting apport-autoreport.service"
     "Finished apport-autoreport.service"
+    "Error in sys.excepthook:"
+    "[] Kernel Log: : ACPI: _OSC evaluation for CPUs failed, trying _PDC"
 )

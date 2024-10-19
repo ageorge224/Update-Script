@@ -27,7 +27,7 @@ load_exclusions() {
 # Source your log_functions.sh file using the function
 source_from_dir "/home/ageorge/Desktop/Update-Script" "log_functions.sh"
 load_exclusions "/home/ageorge/Desktop/Update-Script/exclusions_config"
-echo "Loaded exclusions: ${exclusions[@]}"
+echo "Debug: Loaded exclusions: ${exclusions[@]}"
 
 # Initialize unset variables with defaults
 AG_backup="${AG_backup:-192.168.1.238}"
@@ -221,7 +221,7 @@ h_bar="\e[36m─\e[0m"
 print_header() {
     local script_name="local_update.sh"
     local version="v1.2.98"
-    local author="Anthony George"
+    local author="ChatGPT(Primary) Anthony G.(Promptor)"
     local description="A script for performing local and remote system updates with backup functionality"
     local date
     date=$(date +"%Y-%m-%d")
@@ -2853,7 +2853,6 @@ print_log_table() {
     echo -e "\n"
 }
 
-# Function to display errors and allow selection for exclusion
 select_errors_for_exclusion() {
     local error_list=("$@") # Array of errors passed to the function
     local temp_file         # Temporary file for dialog selection
@@ -2862,37 +2861,39 @@ select_errors_for_exclusion() {
     # Prepare dialog input format (index + error line)
     local dialog_input=()
     for i in "${!error_list[@]}"; do
-        dialog_input+=("$i" "${error_list[$i]}")
+        dialog_input+=("$i" "${error_list[$i]}" "off")
     done
 
     # Use dialog to display a checklist for error selection
-    dialog --checklist "Select errors to add to the exclusion list:" 0 0 10 \
-        "${dialog_input[@]}" 2>"$temp_file"
+    if ! dialog --checklist "Select errors to add to the exclusion list:" 0 0 10 "${dialog_input[@]}" 2>"$temp_file"; then
+        return # Dialog canceled or had an issue, no need for a message
+    fi
 
-    # Read the selected indices
+    # Read the selected indices from the dialog
     local selected_indices
     mapfile -t selected_indices <"$temp_file"
     rm -f "$temp_file"
 
-    # Iterate over the selected indices to add errors to exclusions
+    # Iterate over the selected indices to get the corresponding error strings
     for index in "${selected_indices[@]}"; do
-        # Trim any surrounding whitespace and quotes
-        index=$(echo "$index" | tr -d '"')
+        local error_string="${error_list[index]}"
 
-        # Debug output to verify the cleaned index
-        echo "Debug: Cleaned index is '$index'"
+        # Clean up the error string by removing dynamic elements (timestamps, process IDs, and specific labels)
+        local cleaned_error_string
+        cleaned_error_string=$(echo "$error_string" | sed -E 's/[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\.[0-9]+)?[-+][0-9]{2}:[0-9]{2}//g' |
+            sed -E 's/\[[0-9]+\]//g' |
+            sed -E 's/(AGMain|Pi-Hole|System Log|org\.cinnamon\.ScreenSaver|kernel|systemd)//g' |
+            sed -E 's/\s+/ /g' |
+            sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
 
-        # Check if the index is numeric
-        if [[ "$index" =~ ^[0-9]+$ ]]; then
-            local error_to_add="${error_list[$index]}"
-            if ! array_contains "$error_to_add" "${exclusions[@]}"; then
-                exclusions+=("$error_to_add")
-                echo "Debug: Added '$error_to_add' to exclusions" # Debug line
-            else
-                echo "Info: '$error_to_add' is already in exclusions, skipping." # Info line for existing exclusion
-            fi
-        else
-            echo "Warning: Invalid index '$index' found."
+        # Skip if the cleaned error string is empty
+        if [[ -z "$cleaned_error_string" ]]; then
+            continue
+        fi
+
+        # Add the cleaned error to the exclusions array, avoiding duplicates
+        if ! array_contains "$cleaned_error_string" "${exclusions[@]}"; then
+            exclusions+=("$cleaned_error_string")
         fi
     done
 
@@ -2904,9 +2905,6 @@ select_errors_for_exclusion() {
 scan_and_classify_logs() {
     log_files=("${logs[@]}")
     true >"$temp_error_counts" # Clear the temporary file
-    position_file="$CACHE_DIR/"
-    basename_result=$(basename "$log_file")
-    position_file+="$basename_result.pos"
     echo -e "\n\e[36mScanning Logs:\e[0m"
 
     # Define a function to process each log file
@@ -2956,7 +2954,8 @@ scan_and_classify_logs() {
         echo -e "\e[36mScanning Remote Log: $log_name on $pihole\e[0m"
         local ssh_command="export SUDO_ASKPASS='$SUDO_ASKPASS'; ${sudo_required:+sudo -A} cat '$log_file'"
         if ssh -o BatchMode=no -o ConnectTimeout=5 "$remote_user@$pihole" "$ssh_command" 2>/dev/null | process_log_content "$log_name"; then
-            :
+            new_last_position=$(ssh -o BatchMode=no -o ConnectTimeout=5 "$remote_user@$pihole" "wc -l <'$log_file'")
+            set_last_position "$log_file" "$new_last_position"
         else
             echo -e "\e[31m[ERROR]\e[0m Cannot read remote log file: $log_name on $pihole"
             echo "PermissionError" >>"$temp_error_counts"
@@ -2964,7 +2963,7 @@ scan_and_classify_logs() {
         fi
     }
 
-    MAX_ERRORS=10
+    MAX_ERRORS=5
     error_count=0
     timestamp=$(date)
 
@@ -2972,32 +2971,27 @@ scan_and_classify_logs() {
         local log_name="$1"
         local errors=""
         while IFS= read -r line; do
-            # Remove any ANSI escape codes from the line using Bash's built-in string manipulation
-            local clean_line
-            clean_line="${line//[$'\x1b'][[0-9;]*m/}"
+            clean_line=$(echo "$line" | sed 's/\x1b\[[0-9;]*m//g')
+            local exclude=false
+            for exclusion in "${exclusions[@]}"; do
+                if [[ "$clean_line" =~ $exclusion ]]; then
+                    exclude=true
+                    break
+                fi
+            done
 
-            if [[ "$clean_line" =~ [Ee]rror|[Ee]xception|[Ff]ailed|[Ff]ailure ]]; then
-                local exclude=false
-                for exclusion in "${exclusions[@]}"; do
-                    if [[ "$clean_line" =~ $exclusion ]]; then
-                        exclude=true
-                        break
-                    fi
-                done
-
-                if [[ "$exclude" == false ]]; then
-                    error_message="[$timestamp] $log_name: $clean_line"
-                    echo -e "\e[31m[ERROR]\e[0m $error_message"
-                    errors+="$error_message"$'\n'
-
-                    ((error_count++))
-                    if [[ $error_count -ge $MAX_ERRORS ]]; then
-                        break
-                    fi
+            if [[ "$exclude" == false ]]; then
+                error_message="[$timestamp] $log_name: $clean_line"
+                echo -e "\e[31m[ERROR]\e[0m $error_message"
+                errors+="$error_message"$'\n'
+                ((error_count++))
+                if [[ $error_count -ge $MAX_ERRORS ]]; then
+                    break
                 fi
             fi
         done
 
+        # Write all errors at once to avoid multiple disk writes
         echo "$errors" >>"$centralized_error_log"
         echo "$errors" >>"$LOCAL_UPDATE_ERROR"
         echo "$errors" >>"$SEEN_ERRORS_FILE"
@@ -3011,6 +3005,8 @@ scan_and_classify_logs() {
 
     if [[ ${#all_errors[@]} -gt 0 ]]; then
         select_errors_for_exclusion "${all_errors[@]}"
+    else
+        echo "Info: No errors to review for exclusion."
     fi
 
     # Dump accumulated logs to the error log
