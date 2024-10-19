@@ -13,9 +13,21 @@ source_from_dir() {
     fi
 }
 
+load_exclusions() {
+    local config_file="${1:-/home/ageorge/Desktop/Update-Script/exclusions_config}"
+    if [[ -f "$config_file" ]]; then
+        # shellcheck disable=SC1090
+        source "$config_file"
+    else
+        exclusions=() # Initialize an empty array if the file doesn't exist
+        echo "Warning: Exclusions file not found, initializing an empty exclusions array."
+    fi
+}
+
 # Source your log_functions.sh file using the function
 source_from_dir "/home/ageorge/Desktop/Update-Script" "log_functions.sh"
-load_exclusions
+load_exclusions "/home/ageorge/Desktop/Update-Script/exclusions_config"
+echo "Loaded exclusions: ${exclusions[@]}"
 
 # Initialize unset variables with defaults
 AG_backup="${AG_backup:-192.168.1.238}"
@@ -2841,21 +2853,11 @@ print_log_table() {
     echo -e "\n"
 }
 
-# Function to check if an item exists in an array
-array_contains() {
-    local element
-    for element in "${@:2}"; do
-        if [[ "$element" == "$1" ]]; then
-            return 0 # Item exists in the array
-        fi
-    done
-    return 1 # Item does not exist in the array
-}
-
 # Function to display errors and allow selection for exclusion
 select_errors_for_exclusion() {
-    local error_list=("$@")   # Array of errors passed to the function
-    local temp_file=$(mktemp) # Temporary file for dialog selection
+    local error_list=("$@") # Array of errors passed to the function
+    local temp_file         # Temporary file for dialog selection
+    temp_file=$(mktemp)
 
     # Prepare dialog input format (index + error line)
     local dialog_input=()
@@ -2869,14 +2871,28 @@ select_errors_for_exclusion() {
 
     # Read the selected indices
     local selected_indices
-    read -r -a selected_indices <"$temp_file"
+    mapfile -t selected_indices <"$temp_file"
     rm -f "$temp_file"
 
-    # Add selected errors to the exclusions array, avoiding duplicates
+    # Iterate over the selected indices to add errors to exclusions
     for index in "${selected_indices[@]}"; do
-        local error_to_add="${error_list[index]}"
-        if ! array_contains "$error_to_add" "${exclusions[@]}"; then
-            exclusions+=("$error_to_add")
+        # Trim any surrounding whitespace and quotes
+        index=$(echo "$index" | tr -d '"')
+
+        # Debug output to verify the cleaned index
+        echo "Debug: Cleaned index is '$index'"
+
+        # Check if the index is numeric
+        if [[ "$index" =~ ^[0-9]+$ ]]; then
+            local error_to_add="${error_list[$index]}"
+            if ! array_contains "$error_to_add" "${exclusions[@]}"; then
+                exclusions+=("$error_to_add")
+                echo "Debug: Added '$error_to_add' to exclusions" # Debug line
+            else
+                echo "Info: '$error_to_add' is already in exclusions, skipping." # Info line for existing exclusion
+            fi
+        else
+            echo "Warning: Invalid index '$index' found."
         fi
     done
 
@@ -2891,7 +2907,6 @@ scan_and_classify_logs() {
     position_file="$CACHE_DIR/"
     basename_result=$(basename "$log_file")
     position_file+="$basename_result.pos"
-    echo -e "\n--- Scan started at $(date) ---" >>"$centralized_error_log"
     echo -e "\n\e[36mScanning Logs:\e[0m"
 
     # Define a function to process each log file
@@ -2957,17 +2972,21 @@ scan_and_classify_logs() {
         local log_name="$1"
         local errors=""
         while IFS= read -r line; do
-            if [[ "$line" =~ [Ee]rror|[Ee]xception|[Ff]ailed|[Ff]ailure ]]; then
+            # Remove any ANSI escape codes from the line using Bash's built-in string manipulation
+            local clean_line
+            clean_line="${line//[$'\x1b'][[0-9;]*m/}"
+
+            if [[ "$clean_line" =~ [Ee]rror|[Ee]xception|[Ff]ailed|[Ff]ailure ]]; then
                 local exclude=false
                 for exclusion in "${exclusions[@]}"; do
-                    if [[ "$line" =~ "$exclusion" ]]; then
+                    if [[ "$clean_line" =~ $exclusion ]]; then
                         exclude=true
                         break
                     fi
                 done
 
                 if [[ "$exclude" == false ]]; then
-                    error_message="[$timestamp] $log_name: $line"
+                    error_message="[$timestamp] $log_name: $clean_line"
                     echo -e "\e[31m[ERROR]\e[0m $error_message"
                     errors+="$error_message"$'\n'
 
