@@ -52,80 +52,58 @@ restart_script_function() {
 # Function for custom action (SIGUSR1)
 custom_action() {
     log_message blue "Performing custom action for SIGUSR1"
-    # Add your custom action here
-    # For example, you might want to:
-    # - Reload configuration
-    # - Perform a status check
-    # - Write current state to a file
-    echo "Custom action performed at $(date)" >>"$RUN_LOG"
+    load_exclusions "/home/ageorge/Desktop/Update-Script/exclusions_config"
+    log_message green "Configuration reloaded successfully."
+    echo "Configuration reloaded at $(date)" >>"$RUN_LOG"
 }
 
 # Cleanup function
 cleanup_function() {
     log_message yellow "Performing cleanup..."
-    # Add your cleanup actions here
-    # For example:
-    # - Remove temporary files
-    # - Close open file descriptors
-    # - Kill any background processes started by this script
     echo "Cleanup completed at $(date)" >>"$RUN_LOG"
 }
-
-# Enable error trapping
-set -o errexit # Enable strict error checking
-#set -o nounset # Exit if an unset variable is used
-set -o noglob # Disable filename expansion
-set -eE
-#set -o pipefail # trace ERR through pipes
-#set -o errtrace # trace ERR through 'time command' and other functions
 
 # Error handling function with backtrace and retry
 handle_error() {
     local func_name="$1"
     local err="${2:-check}"
-    local retry_command="$3"
+    local retry_command="${3:-}"
     local retry_count=0
     local max_retries=3
     local backtrace_file="/tmp/error_backtrace.txt"
 
-    # Log the error message
     log_message red "Error in function '${func_name}': ${err}"
     echo "Error in function '${func_name}': ${err}" >>"$LOCAL_UPDATE_ERROR"
 
-    # Generate backtrace
-    echo "Backtrace:" >>"$backtrace_file"
+    echo "Backtrace:" >"$backtrace_file"
     local i=0
     while caller $i >>"$backtrace_file"; do
         ((i++))
     done
 
-    # Disable 'errexit' temporarily for retry logic
     set +e
 
-    # Define a temporary function that encapsulates the retry command
-    temp_retry() {
-        eval "$retry_command"
-    }
+    if [[ -n "$retry_command" ]]; then
+        while [[ $retry_count -lt $max_retries ]]; do
+            log_message yellow "Retrying after error... Attempt $((retry_count + 1))/$max_retries"
+            if eval "$retry_command"; then
+                log_message green "Retried successfully on attempt $((retry_count + 1))"
+                set -e
+                return 0
+            fi
+            ((retry_count++))
+            sleep $(((RANDOM % 5) + (2 ** retry_count)))
+        done
+    fi
 
-    # Implement retry logic
-    while [[ $retry_count -lt $max_retries ]]; do
-        log_message yellow "Retrying after error... Attempt $((retry_count + 1))/$max_retries"
-
-        if temp_retry; then
-            log_message green "Retried successfully on attempt $((retry_count + 1))"
-            return 0
-        fi
-
-        ((retry_count++))
-        sleep $(((RANDOM % 5) + (2 ** retry_count)))
-    done
-
-    # Re-enable 'errexit'
     set -e
 
-    # If all retries fail, log the failure, print the backtrace, and exit the script
     log_message red "All retries failed. Exiting script."
     cat "$backtrace_file"
+
+    # Ensure cleanup is performed before exiting
+    cleanup_function
+
     exit 1
 }
 
@@ -3028,8 +3006,8 @@ scan_and_classify_logs() {
         local log_name="$1"
         local errors=""
         while IFS= read -r line; do
-            # Clean the line of ANSI color codes
-            clean_line="${line//[^\x00-\x7F]//}"
+            # Use sed to clean the line of ANSI color codes and other unwanted characters
+            clean_line=$(echo "$line" | sed -E 's/\x1b\[[0-9;]*m//g')
 
             # Check if the line contains error-related keywords
             if [[ "$clean_line" =~ [Ee]rror|[Ee]xception|[Ff]ailed|[Ff]ailure ]]; then
