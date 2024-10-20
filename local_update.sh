@@ -27,7 +27,7 @@ load_exclusions() {
 # Source your log_functions.sh file using the function
 source_from_dir "/home/ageorge/Desktop/Update-Script" "log_functions.sh"
 load_exclusions "/home/ageorge/Desktop/Update-Script/exclusions_config"
-echo "Debug: Loaded exclusions:" "${exclusions[@]}"
+echo "Loaded exclusions:" "${exclusions[@]}"
 
 # Initialize unset variables with defaults
 AG_backup="${AG_backup:-192.168.1.238}"
@@ -138,7 +138,7 @@ trap 'log_message blue "Custom action for SIGUSR1"; custom_action' SIGUSR1
 trap 'cleanup_function' EXIT
 
 # Variables
-VERSION="1.2.995"
+VERSION="1.2.996"
 DRY_RUN=false
 
 # VConstants
@@ -3029,7 +3029,7 @@ scan_and_classify_logs() {
         local errors=""
         while IFS= read -r line; do
             # Clean the line of ANSI color codes
-            clean_line=$(echo "$line" | sed 's/\x1b\[[0-9;]*m//g')
+            clean_line="${line//[^\x00-\x7F]//}"
 
             # Check if the line contains error-related keywords
             if [[ "$clean_line" =~ [Ee]rror|[Ee]xception|[Ff]ailed|[Ff]ailure ]]; then

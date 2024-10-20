@@ -4,4 +4,5 @@ exclusions=(
     "Finished apport-autoreport.service"
     "Error in sys.excepthook:"
     "[] Kernel Log: : ACPI: _OSC evaluation for CPUs failed, trying _PDC"
+    "[] Local Update Log: [32m<----[No errors detected during the Local script execution.]---->[0m"
 )
