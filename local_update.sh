@@ -43,6 +43,13 @@ LOCAL_UPDATE_DEBUG="${LOCAL_UPDATE_DEBUG:-/default/local_update_debug.log}"
 BACKUP_LOG_DIR="${BACKUP_LOG_DIR:-/default/backup_log_dir}"
 BACKUP_LOG_FILE="${BACKUP_LOG_FILE:-/default/backup_log_file.log}"
 
+# Enable error trapping
+set -o errexit # Enable strict error checking
+#set -o nounset # Exit if an unset variable is used
+set -o noglob # Disable filename expansion
+set -eE
+
+# Error handling function with backtrace and retry
 handle_error() {
     local func_name="$1"
     local err="${2:-check}"
@@ -92,8 +99,13 @@ handle_error() {
     exit 1
 }
 
+# Trap errors and signals
+trap 'handle_error "$BASH_COMMAND" "$?"' ERR
+trap 'echo "Script terminated prematurely" >> "$RUN_LOG"; exit 1' SIGINT SIGTERM
+trap 'handle_error "SIGPIPE received" "$?"' SIGPIPE
+
 # Variables
-VERSION="1.2.992"
+VERSION="1.2.995"
 DRY_RUN=false
 
 # VConstants
