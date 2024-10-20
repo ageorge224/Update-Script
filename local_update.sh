@@ -2774,9 +2774,21 @@ setup_and_validate() {
     # Validate 'parallel' installation
     if ! parallel --version &>/dev/null; then
         handle_error "setup_and_validate" "'parallel' command not found. Please install GNU Parallel."
-        # Optionally provide installation instructions
         return 1
     fi
+
+    # Check and set permissions for each log file in the logs array
+    for log in "${logs[@]}"; do
+        log_path=$(echo "$log" | cut -d':' -f1)
+        if [ -f "$log_path" ]; then
+            if ! chmod 644 "$log_path"; then
+                handle_error "setup_and_validate" "Failed to set permissions for log file $log_path"
+                return 1
+            fi
+        else
+            echo "Warning: Log file $log_path not found."
+        fi
+    done
 
     log_message green "Setup and validation completed successfully."
 }
@@ -3016,25 +3028,33 @@ scan_and_classify_logs() {
         local log_name="$1"
         local errors=""
         while IFS= read -r line; do
+            # Clean the line of ANSI color codes
             clean_line=$(echo "$line" | sed 's/\x1b\[[0-9;]*m//g')
-            local exclude=false
-            for exclusion in "${exclusions[@]}"; do
-                if [[ "$clean_line" =~ $exclusion ]]; then
-                    exclude=true
-                    break
-                fi
-            done
 
-            if [[ "$exclude" == false ]]; then
-                error_message="[$timestamp] $log_name: $clean_line"
-                echo -e "\e[31m[ERROR]\e[0m $error_message"
-                errors+="$error_message"$'\n'
-                ((error_count++))
-                if [[ $error_count -ge $MAX_ERRORS ]]; then
-                    break
+            # Check if the line contains error-related keywords
+            if [[ "$clean_line" =~ [Ee]rror|[Ee]xception|[Ff]ailed|[Ff]ailure ]]; then
+                local exclude=false
+                for exclusion in "${exclusions[@]}"; do
+                    if [[ "$clean_line" =~ $exclusion ]]; then
+                        exclude=true
+                        break
+                    fi
+                done
+
+                if [[ "$exclude" == false ]]; then
+                    error_message="[$timestamp] $log_name: $clean_line"
+                    echo -e "\e[31m[ERROR]\e[0m $error_message"
+                    errors+="$error_message"$'\n'
+                    ((error_count++))
+                    if [[ $error_count -ge $MAX_ERRORS ]]; then
+                        break
+                    fi
                 fi
             fi
-        done
+        done < <(cat "$log_file" 2>/dev/null) || {
+            echo -e "\e[31m[ERROR]\e[0m An error occurred while processing the log file: $log_name"
+            echo "[$(date)] An error occurred while processing the log file: $log_name" >>"$centralized_error_log"
+        }
 
         # Write all errors at once to avoid multiple disk writes
         echo "$errors" >>"$centralized_error_log"
