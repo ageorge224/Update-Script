@@ -27,7 +27,7 @@ load_exclusions() {
 # Source your log_functions.sh file using the function
 source_from_dir "/home/ageorge/Desktop/Update-Script" "log_functions.sh"
 load_exclusions "/home/ageorge/Desktop/Update-Script/exclusions_config"
-echo "Debug: Loaded exclusions: ${exclusions[@]}"
+echo "Debug: Loaded exclusions:" "${exclusions[@]}"
 
 # Initialize unset variables with defaults
 AG_backup="${AG_backup:-192.168.1.238}"
@@ -42,6 +42,34 @@ LOCAL_UPDATE_ERROR="${LOCAL_UPDATE_ERROR:-/default/local_update_error.log}"
 LOCAL_UPDATE_DEBUG="${LOCAL_UPDATE_DEBUG:-/default/local_update_debug.log}"
 BACKUP_LOG_DIR="${BACKUP_LOG_DIR:-/default/backup_log_dir}"
 BACKUP_LOG_FILE="${BACKUP_LOG_FILE:-/default/backup_log_file.log}"
+
+# Function to restart the script
+restart_script_function() {
+    log_message yellow "Restarting script..."
+    exec "$0" "$@"
+}
+
+# Function for custom action (SIGUSR1)
+custom_action() {
+    log_message blue "Performing custom action for SIGUSR1"
+    # Add your custom action here
+    # For example, you might want to:
+    # - Reload configuration
+    # - Perform a status check
+    # - Write current state to a file
+    echo "Custom action performed at $(date)" >>"$RUN_LOG"
+}
+
+# Cleanup function
+cleanup_function() {
+    log_message yellow "Performing cleanup..."
+    # Add your cleanup actions here
+    # For example:
+    # - Remove temporary files
+    # - Close open file descriptors
+    # - Kill any background processes started by this script
+    echo "Cleanup completed at $(date)" >>"$RUN_LOG"
+}
 
 # Enable error trapping
 set -o errexit # Enable strict error checking
@@ -107,6 +135,7 @@ trap 'echo "Script terminated prematurely" >> "$RUN_LOG"; exit 1' SIGINT SIGTERM
 trap 'handle_error "SIGPIPE received" "$?"' SIGPIPE
 trap 'log_message yellow "Restarting script due to SIGHUP"; restart_script_function' SIGHUP
 trap 'log_message blue "Custom action for SIGUSR1"; custom_action' SIGUSR1
+trap 'cleanup_function' EXIT
 
 # Variables
 VERSION="1.2.995"

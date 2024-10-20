@@ -3,7 +3,8 @@
 # Function to get the last position from a cached file
 get_last_position() {
     local log_file="$1"
-    local position_file="$CACHE_DIR/$(basename "$log_file").pos"
+    local position_file
+    position_file="$CACHE_DIR/$(basename "$log_file").pos"
     if [ -f "$position_file" ]; then
         cat "$position_file"
     else
@@ -15,7 +16,8 @@ get_last_position() {
 set_last_position() {
     local log_file="$1"
     local position="$2"
-    local position_file="$CACHE_DIR/$(basename "$log_file").pos"
+    local position_file
+    position_file="$CACHE_DIR/$(basename "$log_file").pos"
     echo "$position" >"$position_file"
 }
 
