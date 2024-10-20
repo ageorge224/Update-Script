@@ -48,6 +48,8 @@ set -o errexit # Enable strict error checking
 #set -o nounset # Exit if an unset variable is used
 set -o noglob # Disable filename expansion
 set -eE
+#set -o pipefail # trace ERR through pipes
+#set -o errtrace # trace ERR through 'time command' and other functions
 
 # Error handling function with backtrace and retry
 handle_error() {
@@ -87,7 +89,7 @@ handle_error() {
         fi
 
         ((retry_count++))
-        sleep 5
+        sleep $(((RANDOM % 5) + (2 ** retry_count)))
     done
 
     # Re-enable 'errexit'
@@ -103,6 +105,8 @@ handle_error() {
 trap 'handle_error "$BASH_COMMAND" "$?"' ERR
 trap 'echo "Script terminated prematurely" >> "$RUN_LOG"; exit 1' SIGINT SIGTERM
 trap 'handle_error "SIGPIPE received" "$?"' SIGPIPE
+trap 'log_message yellow "Restarting script due to SIGHUP"; restart_script_function' SIGHUP
+trap 'log_message blue "Custom action for SIGUSR1"; custom_action' SIGUSR1
 
 # Variables
 VERSION="1.2.995"
