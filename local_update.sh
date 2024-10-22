@@ -1,5 +1,13 @@
 #!/bin/bash
 
+# Enable error trapping
+set -o errexit # Enable strict error checking
+#set -o nounset # Exit if an unset variable is used
+set -o noglob # Disable filename expansion
+set -eE
+#set -o pipefail # trace ERR through pipes
+#set -o errtrace # trace ERR through 'time command' and other functions
+
 # shellcheck disable=SC1090
 # Function to source files from a specific directory
 source_from_dir() {
@@ -273,43 +281,50 @@ h_bar="\e[36m─\e[0m"
 
 # Header creation and display function
 print_header() {
-    local script_name="local_update.sh"
-    local version="v1.2.98"
-    local author="ChatGPT(Primary) Anthony G.(Promptor)"
-    local description="A script for performing local and remote system updates with backup functionality"
-    local date
-    date=$(date +"%Y-%m-%d")
+    local script_name="$1"
+    local version="$2"
+    local author="$3"
+    local description="$4"
+    local date="$5"
+    shift 5
+    local vars=("$@")
 
     calc_max_width() {
-        local max_width=80
+        local max_width=0
         local temp_width
 
-        temp_width=$((${#script_name} + ${#version} + 4))
+        # Calculate width based on each section
+        temp_width=$((${#script_name} + ${#version} + 8)) # +8 for padding and borders
         [[ $temp_width -gt $max_width ]] && max_width=$temp_width
 
-        temp_width=$((${#date} + ${#author} + 15))
+        temp_width=$((${#date} + ${#author} + 22)) # +22 for padding and format space
         [[ $temp_width -gt $max_width ]] && max_width=$temp_width
 
+        temp_width=$((${#description} + 14)) # Adding buffer space for long descriptions
+        [[ $temp_width -gt $max_width ]] && max_width=$temp_width
+
+        # Calculate width for configuration variables
         local vars=("REMOTE_USER" "pihole" "BACKUP_DIR" "BACKUP_DIR2" "LOG_FILE" "BACKUP_LOG_FILE" "DRY_RUN")
         for var in "${vars[@]}"; do
             value="${!var}"
-            temp_width=$((${#var} + ${#value} + 24))
+            temp_width=$((${#var} + ${#value} + 28)) # +28 for padding and borders
             [[ $temp_width -gt $max_width ]] && max_width=$temp_width
         done
 
+        # Add fixed padding for the border
         echo $((max_width + 4))
     }
 
     local width
     width=$(calc_max_width)
-    local content_width=$((width - 2)) # Subtract 2 for the left and right borders
+    local content_width=$((width - 4)) # Subtract 4 for the left and right borders
 
     print_line() {
-        printf '%b' "${h_bar}"
-        for ((i = 1; i < width; i++)); do
+        printf '%b' "${u_left}"
+        for ((i = 1; i < width - 1; i++)); do
             printf '%b' "${h_bar}"
         done
-        printf '\n'
+        printf '%b\n' "${u_right}"
     }
 
     print_content_line() {
@@ -339,23 +354,32 @@ print_header() {
     print_line
     printf '%b' "${v_bar} ${script_name} ${version} ${v_bar}\n"
     print_line
-    print_content_line "$(printf "%-15s\e[32m%s" "Date:" "$date")"
-    print_content_line "$(printf "%-15s\e[32m%s" "Author:" "$author")"
+    print_content_line "$(printf "%-15s\e[32m%s\e[0m" "Date:" "$date")"
+    print_content_line "$(printf "%-15s\e[32m%s\e[0m" "Author:" "$author")"
     print_line
     print_wrapped_text "$description" "Description: "
     print_line
-    print_content_line "\e[1mConfiguration Variables:"
+    print_content_line "$(printf "\e[1m%s\e[0m" "Configuration Variables:")"
     for var in "${vars[@]}"; do
         value="${!var}"
-        print_content_line "$(printf "%-20s \e[32m%s" "$var:" "$value")"
+        #echo "DEBUG: $var = $value" # Debug line
+        if [[ -n "$value" ]]; then
+            print_content_line "$(printf "%-20s \e[32m%s\e[0m" "$var:" "$value")"
+        else
+            print_content_line "$(printf "%-20s \e[31m%s\e[0m" "$var:" "Not Set")"
+        fi
     done
+
     printf '%b' "${b_left}"
     print_line
     printf '%b\n' "${b_right}"
     echo
 }
 
-print_header
+print_header "$SCRIPT_NAME" "$VERSION" "ChatGPT(Primary) Anthony G.(Promptor)" \
+    "A script for performing local and remote system updates with backup functionality" \
+    "$(date +"%Y-%m-%d")" "REMOTE_USER" "pihole" "BACKUP_DIR" "BACKUP_DIR2" \
+    "LOG_FILE" "BACKUP_LOG_FILE" "DRY_RUN"
 
 # Function to validate log files
 validate_log_files() {

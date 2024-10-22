@@ -6,5 +6,5 @@ exclusions=(
     "[] Kernel Log: : ACPI: _OSC evaluation for CPUs failed, trying _PDC"
     "[] Local Update Log: [32m<----[No errors detected during the Local script execution.]---->[0m"
     "[] : : Original exception was:"
-    "[] Kernel Log: : ACPI: _OSC evaluation for CPUs failed, trying _PDC"
+    "[] : AGeorge-Backup pipewire: mod.jackdbus-detect: Failed to receive jackdbus reply: org.freedesktop.DBus.Error.ServiceUnknown: The name org.jackaudio.service was not provided by any .service files"
 )
