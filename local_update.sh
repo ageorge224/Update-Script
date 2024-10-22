@@ -63,7 +63,7 @@ cleanup_function() {
     echo "Cleanup completed at $(date)" >>"$RUN_LOG"
 }
 
-# Error handling function with backtrace and retry
+# Error handling function with detailed output and retry
 handle_error() {
     local func_name="$1"
     local err="${2:-check}"
@@ -72,17 +72,51 @@ handle_error() {
     local max_retries=3
     local backtrace_file="/tmp/error_backtrace.txt"
 
-    log_message red "Error in function '${func_name}': ${err}"
-    echo "Error in function '${func_name}': ${err}" >>"$LOCAL_UPDATE_ERROR"
+    # Get the file name and line number where the error occurred
+    local file_name="${BASH_SOURCE[1]}"
+    local line_number="${BASH_LINENO[0]}"
+    local error_code="$err"
+    local error_message="${BASH_COMMAND}"
 
-    echo "Backtrace:" >"$backtrace_file"
+    # Output the formatted error message
+    echo -e "\n(!) EXIT HANDLER:\n" >&2
+    echo "FILE:       ${file_name}" >&2
+    echo "LINE:       ${line_number}" >&2
+    echo -e "\nERROR CODE: ${error_code}" >&2
+    echo -e "ERROR MESSAGE:\n${error_message}" >&2
+
+    # Check specific error codes and provide custom handling
+    case "$error_code" in
+    1)
+        log_message yellow "General error occurred. Consider checking permissions or syntax."
+        ;;
+    2)
+        log_message yellow "Misuse of shell builtins. Verify the command syntax."
+        ;;
+    126)
+        log_message yellow "Command invoked cannot execute. Check file permissions."
+        ;;
+    127)
+        log_message yellow "Command not found. Ensure the command exists in your PATH."
+        ;;
+    130)
+        log_message yellow "Script terminated by Ctrl+C (SIGINT)."
+        ;;
+    *)
+        log_message yellow "An unexpected error occurred (Code: ${error_code})."
+        ;;
+    esac
+
+    # Generate the backtrace
+    echo -e "\nBACKTRACE IS:" >"$backtrace_file"
     local i=0
     while caller $i >>"$backtrace_file"; do
         ((i++))
     done
+    cat "$backtrace_file" >&2
 
+    # Retry logic if a command is specified
     set +e
-
     if [[ -n "$retry_command" ]]; then
         while [[ $retry_count -lt $max_retries ]]; do
             log_message yellow "Retrying after error... Attempt $((retry_count + 1))/$max_retries"
@@ -95,13 +129,10 @@ handle_error() {
             sleep $(((RANDOM % 5) + (2 ** retry_count)))
         done
     fi
-
     set -e
 
+    # If retries fail, perform cleanup and exit
     log_message red "All retries failed. Exiting script."
-    cat "$backtrace_file"
-
-    # Ensure cleanup is performed before exiting
     cleanup_function
 
     exit 1
