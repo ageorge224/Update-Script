@@ -80,14 +80,13 @@ handle_error() {
     local max_retries=3
     local backtrace_file="/tmp/error_backtrace.txt"
 
-    # Get the file name and line number where the error occurred
     local file_name="${BASH_SOURCE[1]}"
     local line_number="${BASH_LINENO[0]}"
     local error_code="$err"
     local error_message="${BASH_COMMAND}"
 
-    # Output the formatted error message
     echo -e "\n(!) EXIT HANDLER:\n" >&2
+    echo "FUNCTION:  ${func_name}" >&2
     echo "FILE:       ${file_name}" >&2
     echo "LINE:       ${line_number}" >&2
     echo -e "\nERROR CODE: ${error_code}" >&2
@@ -155,7 +154,7 @@ trap 'log_message blue "Custom action for SIGUSR1"; custom_action' SIGUSR1
 trap 'cleanup_function' EXIT
 
 # Variables
-VERSION="1.2.996"
+VERSION="1.2.997"
 DRY_RUN=false
 
 # VConstants
