@@ -6,7 +6,7 @@ set -o errexit # Enable strict error checking
 set -o noglob # Disable filename expansion
 set -eE
 #set -o pipefail # trace ERR through pipes
-#set -o errtrace # trace ERR through 'time command' and other functions
+set -o errtrace # trace ERR through 'time command' and other functions
 
 # shellcheck disable=SC1090
 # Function to source files from a specific directory
@@ -3010,7 +3010,7 @@ scan_and_classify_logs() {
     }
 
     # Define the maximum number of error lines to display
-    MAX_ERRORS=10
+    MAX_ERRORS=5
     error_count=0
     timestamp=$(date)
 
