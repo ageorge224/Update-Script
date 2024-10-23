@@ -5,7 +5,7 @@ set -o errexit # Enable strict error checking
 #set -o nounset # Exit if an unset variable is used
 set -o noglob # Disable filename expansion
 set -eE
-#set -o pipefail # trace ERR through pipes
+set -o pipefail # trace ERR through pipes
 set -o errtrace # trace ERR through 'time command' and other functions
 
 # shellcheck disable=SC1090
@@ -619,24 +619,34 @@ validate_variablesv2() {
 }
 
 check_restart_required() {
+    local exit_code=0
 
-    # Use a compound command to group the code and catch errors
     {
         if [ -f /var/run/reboot-required ]; then
             log_message red "\nRemote Machine needs restarting\n"
             if [ -f /var/run/reboot-required.pkgs ]; then
                 log_message blue "Packages requiring restart:"
-                log_message blue "\n$(cat /var/run/reboot-required.pkgs)\n"
+                restart_pkgs=$(cat /var/run/reboot-required.pkgs)
+                if [[ $? -eq 0 && -n "$restart_pkgs" ]]; then
+                    log_message blue "\n$restart_pkgs\n"
+                else
+                    log_message yellow "Error retrieving restart packages."
+                fi
             fi
         else
             log_message blue "\nNo restart required\n"
         fi
 
         log_message blue "Time since last reboot:"
-        log_message blue "\n$(uptime)\n"
+        uptime_output=$(uptime)
+        if [[ $? -eq 0 && -n "$uptime_output" ]]; then
+            log_message blue "\n$uptime_output\n"
+        else
+            log_message yellow "Error retrieving uptime information."
+        fi
     } || {
         exit_code=$?
-        handle_error "check_restart_required" "Failed to check restart status: ${exit_code}"
+        handle_error "check_restart_required" "${exit_code}"
     }
 }
 
@@ -1088,11 +1098,12 @@ perform_remote_update() {
         log_message blue "$(printf '\e[3m%s\e[0m' "$description")"
         echo
         if [[ "$DRY_RUN" != "true" ]]; then
-            if eval "$command" 2>&1 | tee -a "$LOG_FILE"; then
-                log_message green "$description completed successfully!"
-            else
+            eval "$command" 2>&1 | tee -a "$LOG_FILE"
+            if [[ ${PIPESTATUS[0]} -ne 0 ]]; then
                 log_message red "Failed to $description"
                 handle_error "perform_remote_update" "Failed to $description"
+            else
+                log_message green "$description completed successfully!"
             fi
         else
             log_message yellow "[DRY RUN] Would run: $command"
@@ -1103,23 +1114,32 @@ perform_remote_update() {
 check_restart_required() {
     local exit_code=0
 
-    # Use a compound command to group the code and catch errors
     {
         if [ -f /var/run/reboot-required ]; then
             log_message red "\nRemote Machine needs restarting\n"
             if [ -f /var/run/reboot-required.pkgs ]; then
                 log_message blue "Packages requiring restart:"
-                log_message blue "\n$(cat /var/run/reboot-required.pkgs)\n"
+                restart_pkgs=$(cat /var/run/reboot-required.pkgs)
+                if [[ $? -eq 0 && -n "$restart_pkgs" ]]; then
+                    log_message blue "\n$restart_pkgs\n"
+                else
+                    log_message yellow "Error retrieving restart packages."
+                fi
             fi
         else
             log_message blue "\nNo restart required\n"
         fi
 
         log_message blue "Time since last reboot:"
-        log_message blue "\n$(uptime)\n"
+        uptime_output=$(uptime)
+        if [[ $? -eq 0 && -n "$uptime_output" ]]; then
+            log_message blue "\n$uptime_output\n"
+        else
+            log_message yellow "Error retrieving uptime information."
+        fi
     } || {
         exit_code=$?
-        handle_error "check_restart_required" "Failed to check restart status: ${exit_code}"
+        handle_error "check_restart_required" "${exit_code}"
     }
 }
 
@@ -1518,11 +1538,12 @@ perform_remote_update() {
         log_message blue "$(printf '\e[3m%s\e[0m' "$description")"
         echo
         if [[ "$DRY_RUN" != "true" ]]; then
-            if eval "$command" 2>&1 | tee -a "$LOG_FILE"; then
-                log_message green "$description completed successfully!"
-            else
+            eval "$command" 2>&1 | tee -a "$LOG_FILE"
+            if [[ ${PIPESTATUS[0]} -ne 0 ]]; then
                 log_message red "Failed to $description"
                 handle_error "perform_remote_update" "Failed to $description"
+            else
+                log_message green "$description completed successfully!"
             fi
         else
             log_message yellow "[DRY RUN] Would run: $command"
@@ -1533,25 +1554,35 @@ perform_remote_update() {
 check_restart_required() {
     local exit_code=0
 
-    # Use a compound command to group the code and catch errors
     {
         if [ -f /var/run/reboot-required ]; then
             log_message red "\nRemote Machine needs restarting\n"
             if [ -f /var/run/reboot-required.pkgs ]; then
                 log_message blue "Packages requiring restart:"
-                log_message blue "\n$(cat /var/run/reboot-required.pkgs)\n"
+                restart_pkgs=$(cat /var/run/reboot-required.pkgs)
+                if [[ $? -eq 0 && -n "$restart_pkgs" ]]; then
+                    log_message blue "\n$restart_pkgs\n"
+                else
+                    log_message yellow "Error retrieving restart packages."
+                fi
             fi
         else
             log_message blue "\nNo restart required\n"
         fi
 
         log_message blue "Time since last reboot:"
-        log_message blue "\n$(uptime)\n"
+        uptime_output=$(uptime)
+        if [[ $? -eq 0 && -n "$uptime_output" ]]; then
+            log_message blue "\n$uptime_output\n"
+        else
+            log_message yellow "Error retrieving uptime information."
+        fi
     } || {
         exit_code=$?
-        handle_error "check_restart_required" "Failed to check restart status: ${exit_code}"
+        handle_error "check_restart_required" "${exit_code}"
     }
 }
+
 
 check_restart_required
 
@@ -1996,25 +2027,35 @@ perform_remote_update() {
 check_restart_required() {
     local exit_code=0
 
-    # Use a compound command to group the code and catch errors
     {
         if [ -f /var/run/reboot-required ]; then
             log_message red "\nRemote Machine needs restarting\n"
             if [ -f /var/run/reboot-required.pkgs ]; then
                 log_message blue "Packages requiring restart:"
-                log_message blue "\n$(cat /var/run/reboot-required.pkgs)\n"
+                restart_pkgs=$(cat /var/run/reboot-required.pkgs)
+                if [[ $? -eq 0 && -n "$restart_pkgs" ]]; then
+                    log_message blue "\n$restart_pkgs\n"
+                else
+                    log_message yellow "Error retrieving restart packages."
+                fi
             fi
         else
             log_message blue "\nNo restart required\n"
         fi
 
         log_message blue "Time since last reboot:"
-        log_message blue "\n$(uptime)\n"
+        uptime_output=$(uptime)
+        if [[ $? -eq 0 && -n "$uptime_output" ]]; then
+            log_message blue "\n$uptime_output\n"
+        else
+            log_message yellow "Error retrieving uptime information."
+        fi
     } || {
         exit_code=$?
-        handle_error "check_restart_required" "Failed to check restart status: ${exit_code}"
+        handle_error "check_restart_required" "${exit_code}"
     }
 }
+
 
 check_restart_required
 
@@ -2362,7 +2403,6 @@ fi
 # Function to generate and display system info
 get_system_identification() {
     {
-        local exit_status=0
         echo -e "\n\e[36mSystem Identification:\e[0m"
         echo
 
@@ -2374,52 +2414,62 @@ get_system_identification() {
         # CPU Info
         cpu_info=$(lscpu | grep 'Model name' | sed 's/Model name:[[:space:]]*//')
         cpu_cores=$(lscpu | grep '^CPU(s):' | awk '{print $2}')
-        printf "\e[36m%-18s\e[0m \e[32m%s (%s cores)\e[0m\n" "CPU Info:" "$cpu_info" "$cpu_cores"
+        if [[ -n "$cpu_info" && -n "$cpu_cores" ]]; then
+            printf "\e[36m%-18s\e[0m \e[32m%s (%s cores)\e[0m\n" "CPU Info:" "$cpu_info" "$cpu_cores"
+        else
+            echo "Error retrieving CPU info."
+        fi
 
         # GPU Info
         gpu_info=$(lspci | grep -i vga | sed 's/.*: //')
-        printf "\e[36m%-18s\e[0m \e[32m%s\e[0m\n" "GPU Info:" "$gpu_info"
+        if [[ -n "$gpu_info" ]]; then
+            printf "\e[36m%-18s\e[0m \e[32m%s\e[0m\n" "GPU Info:" "$gpu_info"
+        else
+            echo "Error retrieving GPU info."
+        fi
 
         # Memory Info
         total_mem=$(free -h | awk '/^Mem:/ {print $2}')
         used_mem=$(free -h | awk '/^Mem:/ {print $3}')
-        printf "\e[36m%-18s\e[0m \e[32m%s / %s\e[0m\n" "Memory Info:" "$used_mem" "$total_mem"
+        if [[ -n "$total_mem" && -n "$used_mem" ]]; then
+            printf "\e[36m%-18s\e[0m \e[32m%s / %s\e[0m\n" "Memory Info:" "$used_mem" "$total_mem"
+        else
+            echo "Error retrieving memory info."
+        fi
 
         # Disk Info
         echo -e "\e[36mDisk Info:\e[0m"
         echo -e "\e[36mDrives:\e[0m"
         printf "\e[36m%-10s %-30s %-10s %-15s\e[0m\n" "Device" "Model" "Size" "Used"
 
-        lsblk -d -o NAME,MODEL,SIZE | grep -v 'loop' | while read -r name model size; do
-            used=$(df -h | grep "^/dev/${name}" | awk '{print $3}')
-            if [[ -z "$used" ]]; then
-                used="N/A"
-            else
-                # Check for different output formats
-                if [[ "$used" =~ ^[0-9]+G$ ]]; then
-                    # Handle GB format
-                    used=${used//G/}
-                elif [[ "$used" =~ ^[0-9]+M$ ]]; then
-                    # Handle MB format
-                    used=${used//M/}
+        lsblk_output=$(lsblk -d -o NAME,MODEL,SIZE | grep -v 'loop')
+        if [[ -n "$lsblk_output" ]]; then
+            echo "$lsblk_output" | while read -r name model size; do
+                df_output=$(df -h | grep "^/dev/${name}")
+                if [[ $? -eq 0 && -n "$df_output" ]]; then
+                    used=$(echo "$df_output" | awk '{print $3}')
+                else
+                    used="N/A"
                 fi
-            fi
-            printf "\e[32m%-10s %-30s %-10s %-15s\e[0m\n" "$name" "${model:0:30}" "$size" "$used"
-        done
+                printf "\e[32m%-10s %-30s %-10s %-15s\e[0m\n" "$name" "${model:0:30}" "$size" "$used"
+            done
+        else
+            echo "No matching drives found."
+        fi
 
         # Network Info
-        echo -e "\n\e[36mNetwork Info:\e[0m"
-        ip -br addr show | grep -v '^lo' | while read -r iface ip; do
-            printf "  \e[36m%-12s\e[0m \e[32m%s\e[0m\n" "$iface" "$ip"
-        done
+        ip_output=$(ip -br addr show | grep -v '^lo')
+        if [[ -n "$ip_output" ]]; then
+            echo -e "\n\e[36mNetwork Info:\e[0m"
+            echo "$ip_output" | while read -r iface ip; do
+                printf "  \e[36m%-12s\e[0m \e[32m%s\e[0m\n" "$iface" "$ip"
+            done
+        else
+            echo "Error retrieving network info."
+        fi
 
         echo
-    }
-    local exit_status=0
-    exit_status=$? # Capture the exit status immediately
-    if [ $exit_status -ne 0 ]; then
-        handle_error "get_system_identification" "$exit_status"
-    fi
+    } || handle_error "get_system_identification" "$?"
 }
 
 # Run system identification
@@ -3059,7 +3109,7 @@ scan_and_classify_logs() {
 
     # Print last 10 unique errors
     echo -e "\n\nSummary of last 10 new logged errors:"
-    sort "$centralized_error_log" | uniq -c | sort -rn | head -n 10
+    sort "$centralized_error_log" | uniq -c | sort -rn | head -n 10 || true
 
     # Dump errors to LOCAL_UPDATE_ERROR
     echo -e "\n\e[36mDumping errors to $LOCAL_UPDATE_ERROR\e[0m"
