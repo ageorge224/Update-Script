@@ -2942,58 +2942,16 @@ print_log_table() {
     echo -e "\n"
 }
 
-select_errors_for_exclusion() {
-    local error_list=("$@") # Array of errors passed to the function
-    local temp_file         # Temporary file for dialog selection
-    temp_file=$(mktemp)
-
-    # Prepare dialog input format (index + error line)
-    local dialog_input=()
-    for i in "${!error_list[@]}"; do
-        dialog_input+=("$i" "${error_list[$i]}" "off")
-    done
-
-    # Use dialog to display a checklist for error selection
-    if ! dialog --checklist "Select errors to add to the exclusion list:" 0 0 10 "${dialog_input[@]}" 2>"$temp_file"; then
-        return # Dialog canceled or had an issue, no need for a message
-    fi
-
-    # Read the selected indices from the dialog
-    local selected_indices
-    mapfile -t selected_indices <"$temp_file"
-    rm -f "$temp_file"
-
-    # Iterate over the selected indices to get the corresponding error strings
-    for index in "${selected_indices[@]}"; do
-        local error_string="${error_list[index]}"
-
-        # Clean up the error string by removing dynamic elements (timestamps, process IDs, and specific labels)
-        local cleaned_error_string
-        cleaned_error_string=$(echo "$error_string" | sed -E 's/[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\.[0-9]+)?[-+][0-9]{2}:[0-9]{2}//g' |
-            sed -E 's/\[[0-9]+\]//g' |
-            sed -E 's/(AGMain|Pi-Hole|System Log|org\.cinnamon\.ScreenSaver|kernel|systemd)//g' |
-            sed -E 's/\s+/ /g' |
-            sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
-
-        # Skip if the cleaned error string is empty
-        if [[ -z "$cleaned_error_string" ]]; then
-            continue
-        fi
-
-        # Add the cleaned error to the exclusions array, avoiding duplicates
-        if ! array_contains "$cleaned_error_string" "${exclusions[@]}"; then
-            exclusions+=("$cleaned_error_string")
-        fi
-    done
-
-    # Save the updated exclusions array
-    save_exclusions
-}
-
-# Modified scan_and_classify_logs function
+# Function to scan and classify logs
 scan_and_classify_logs() {
     log_files=("${logs[@]}")
-    true >"$temp_error_counts" # Clear the temporary file
+    true >"$temp_error_counts" #Clear the temporary file
+    position_file="$CACHE_DIR/"
+    basename_result=$(basename "$log_file")
+    position_file+="$basename_result.pos"
+    # Add a timestamp for this run
+    echo -e "\n--- Scan started at $(date) ---" >>"$centralized_error_log"
+
     echo -e "\n\e[36mScanning Logs:\e[0m"
 
     # Define a function to process each log file
@@ -3043,8 +3001,7 @@ scan_and_classify_logs() {
         echo -e "\e[36mScanning Remote Log: $log_name on $pihole\e[0m"
         local ssh_command="export SUDO_ASKPASS='$SUDO_ASKPASS'; ${sudo_required:+sudo -A} cat '$log_file'"
         if ssh -o BatchMode=no -o ConnectTimeout=5 "$remote_user@$pihole" "$ssh_command" 2>/dev/null | process_log_content "$log_name"; then
-            new_last_position=$(ssh -o BatchMode=no -o ConnectTimeout=5 "$remote_user@$pihole" "wc -l <'$log_file'")
-            set_last_position "$log_file" "$new_last_position"
+            :
         else
             echo -e "\e[31m[ERROR]\e[0m Cannot read remote log file: $log_name on $pihole"
             echo "PermissionError" >>"$temp_error_counts"
@@ -3052,7 +3009,8 @@ scan_and_classify_logs() {
         fi
     }
 
-    MAX_ERRORS=5
+    # Define the maximum number of error lines to display
+    MAX_ERRORS=10
     error_count=0
     timestamp=$(date)
 
@@ -3060,33 +3018,17 @@ scan_and_classify_logs() {
         local log_name="$1"
         local errors=""
         while IFS= read -r line; do
-            # Use sed to clean the line of ANSI color codes and other unwanted characters
-            clean_line=$(echo "$line" | sed -E 's/\x1b\[[0-9;]*m//g')
+            if [[ "$line" =~ [Ee]rror|[Ee]xception|[Ff]ailed|[Ff]ailure ]]; then
+                error_message="[$timestamp] $log_name: $line"
+                echo -e "\e[31m[ERROR]\e[0m $error_message"
+                errors+="$error_message"$'\n'
 
-            # Check if the line contains error-related keywords
-            if [[ "$clean_line" =~ [Ee]rror|[Ee]xception|[Ff]ailed|[Ff]ailure ]]; then
-                local exclude=false
-                for exclusion in "${exclusions[@]}"; do
-                    if [[ "$clean_line" =~ $exclusion ]]; then
-                        exclude=true
-                        break
-                    fi
-                done
-
-                if [[ "$exclude" == false ]]; then
-                    error_message="[$timestamp] $log_name: $clean_line"
-                    echo -e "\e[31m[ERROR]\e[0m $error_message"
-                    errors+="$error_message"$'\n'
-                    ((error_count++))
-                    if [[ $error_count -ge $MAX_ERRORS ]]; then
-                        break
-                    fi
+                ((error_count++))
+                if [[ $error_count -ge $MAX_ERRORS ]]; then
+                    break
                 fi
             fi
-        done < <(cat "$log_file" 2>/dev/null) || {
-            echo -e "\e[31m[ERROR]\e[0m An error occurred while processing the log file: $log_name"
-            echo "[$(date)] An error occurred while processing the log file: $log_name" >>"$centralized_error_log"
-        }
+        done
 
         # Write all errors at once to avoid multiple disk writes
         echo "$errors" >>"$centralized_error_log"
@@ -3094,19 +3036,6 @@ scan_and_classify_logs() {
         echo "$errors" >>"$SEEN_ERRORS_FILE"
     }
 
-    # Collect errors and offer exclusion option
-    local all_errors=()
-    while IFS= read -r error; do
-        all_errors+=("$error")
-    done <"$centralized_error_log"
-
-    if [[ ${#all_errors[@]} -gt 0 ]]; then
-        select_errors_for_exclusion "${all_errors[@]}"
-    else
-        echo "Info: No errors to review for exclusion."
-    fi
-
-    # Dump accumulated logs to the error log
     cat "$SEEN_ERRORS_FILE" >>"$LOCAL_UPDATE_ERROR"
     cat "$centralized_error_log" >>"$LOCAL_UPDATE_ERROR"
 
@@ -3122,7 +3051,7 @@ scan_and_classify_logs() {
     declare -A error_counts
     total_errors=0
     while IFS= read -r error_type; do
-        if [[ -n "$error_type" ]]; then
+        if [[ -n "$error_type" ]]; then # Check if error_type is not empty
             ((error_counts[$error_type]++))
             ((total_errors++))
         fi
@@ -3140,7 +3069,6 @@ scan_and_classify_logs() {
     echo -e "--- Scan completed at $(date) ---\n" >>"$centralized_error_log"
 }
 
-# Make sure the function closes properly and avoid unintentional commands after it.
 # Call the get_log_info function
 get_log_info
 
