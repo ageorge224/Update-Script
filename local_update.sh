@@ -154,7 +154,7 @@ trap 'log_message blue "Custom action for SIGUSR1"; custom_action' SIGUSR1
 trap 'cleanup_function' EXIT
 
 # Variables
-VERSION="1.2.997"
+VERSION="1.2.998.101"
 DRY_RUN=false
 
 # VConstants
@@ -846,67 +846,107 @@ BACKUP_LOG_DIR="${BACKUP_LOG_DIR:-/default/backup_log_dir}"
 BACKUP_LOG_FILE="${BACKUP_LOG_FILE:-/default/backup_log_file.log}"
 
 
-# Enable error trapping
-set -o errexit # Enable strict error checking
-#set -o nounset # Exit if an unset variable is used
-set -o noglob # Disable filename expansion
-set -eE
+# Function to restart the script
+restart_script_function() {
+    log_message yellow "Restarting script..."
+    exec "$0" "$@"
+}
 
+# Function for custom action (SIGUSR1)
+custom_action() {
+    log_message blue "Performing custom action for SIGUSR1"
+    load_exclusions "/home/ageorge/Desktop/Update-Script/exclusions_config"
+    log_message green "Configuration reloaded successfully."
+    echo "Configuration reloaded at $(date)" >>"$RUN_LOG"
+}
+
+# Cleanup function
+cleanup_function() {
+    log_message yellow "Performing cleanup..."
+    echo "Cleanup completed at $(date)" >>"$RUN_LOG"
+}
+
+# Error handling function with detailed output and retry
 handle_error() {
     local func_name="$1"
     local err="${2:-check}"
-    local retry_command="$3"
+    local retry_command="${3:-}"
     local retry_count=0
     local max_retries=3
     local backtrace_file="/tmp/error_backtrace.txt"
 
-    # Log the error message
-    log_message red "Error in function '${func_name}': ${err}"
+    local file_name="${BASH_SOURCE[1]}"
+    local line_number="${BASH_LINENO[0]}"
+    local error_code="$err"
+    local error_message="${BASH_COMMAND}"
 
-    # Write the error to a specific error log file
-    echo "Error in function '${func_name}': ${err}" >>"$LOCAL_UPDATE_ERROR"
+    echo -e "\n(!) EXIT HANDLER:\n" >&2
+    echo "FUNCTION:  ${func_name}" >&2
+    echo "FILE:       ${file_name}" >&2
+    echo "LINE:       ${line_number}" >&2
+    echo -e "\nERROR CODE: ${error_code}" >&2
+    echo -e "ERROR MESSAGE:\n${error_message}" >&2
 
-    # Generate backtrace
-    echo "Backtrace:" >>"$backtrace_file"
+    # Check specific error codes and provide custom handling
+    case "$error_code" in
+    1)
+        log_message yellow "General error occurred. Consider checking permissions or syntax."
+        ;;
+    2)
+        log_message yellow "Misuse of shell builtins. Verify the command syntax."
+        ;;
+    126)
+        log_message yellow "Command invoked cannot execute. Check file permissions."
+        ;;
+    127)
+        log_message yellow "Command not found. Ensure the command exists in your PATH."
+        ;;
+    130)
+        log_message yellow "Script terminated by Ctrl+C (SIGINT)."
+        ;;
+    *)
+        log_message yellow "An unexpected error occurred (Code: ${error_code})."
+        ;;
+    esac
+
+    # Generate the backtrace
+    echo -e "\nBACKTRACE IS:" >"$backtrace_file"
     local i=0
     while caller $i >>"$backtrace_file"; do
         ((i++))
     done
+    cat "$backtrace_file" >&2
 
-    # Temporarily disable errexit
+    # Retry logic if a command is specified
     set +e
-
-    # Implement retry logic
-    while [[ $retry_count -lt $max_retries ]]; do
-        log_message yellow "Retrying after error... Attempt $((retry_count + 1))/$max_retries"
-
-        # Retry the failed operation
-        if eval "$retry_command"; then
-            log_message green "Retried successfully on attempt $((retry_count + 1))"
-            return 0
-        fi
-
-        # Increase the retry count
-        ((retry_count++))
-
-        # Optional: Add a delay between retries (e.g., 5 seconds)
-        sleep 5
-    done
-
-    # Re-enable errexit
+    if [[ -n "$retry_command" ]]; then
+        while [[ $retry_count -lt $max_retries ]]; do
+            log_message yellow "Retrying after error... Attempt $((retry_count + 1))/$max_retries"
+            if eval "$retry_command"; then
+                log_message green "Retried successfully on attempt $((retry_count + 1))"
+                set -e
+                return 0
+            fi
+            ((retry_count++))
+            sleep $(((RANDOM % 5) + (2 ** retry_count)))
+        done
+    fi
     set -e
 
-    # If all retries fail, log the failure, print the backtrace, and exit the script
+    # If retries fail, perform cleanup and exit
     log_message red "All retries failed. Exiting script."
-    cat "$backtrace_file"
+    cleanup_function
+
     exit 1
 }
-
 
 # Trap errors and signals
 trap 'handle_error "$BASH_COMMAND" "$?"' ERR
 trap 'echo "Script terminated prematurely" >> "$RUN_LOG"; exit 1' SIGINT SIGTERM
 trap 'handle_error "SIGPIPE received" "$?"' SIGPIPE
+trap 'log_message yellow "Restarting script due to SIGHUP"; restart_script_function' SIGHUP
+trap 'log_message blue "Custom action for SIGUSR1"; custom_action' SIGUSR1
+trap 'cleanup_function' EXIT
 
 VERSION="1.2 (AgeorgeBackup)"
 LOG_FILE="/tmp/remote_update.log"
@@ -1303,67 +1343,107 @@ BACKUP_LOG_DIR="${BACKUP_LOG_DIR:-/default/backup_log_dir}"
 BACKUP_LOG_FILE="${BACKUP_LOG_FILE:-/default/backup_log_file.log}"
 
 
-# Enable error trapping
-set -o errexit # Enable strict error checking
-#set -o nounset # Exit if an unset variable is used
-set -o noglob # Disable filename expansion
-set -eE
+# Function to restart the script
+restart_script_function() {
+    log_message yellow "Restarting script..."
+    exec "$0" "$@"
+}
 
+# Function for custom action (SIGUSR1)
+custom_action() {
+    log_message blue "Performing custom action for SIGUSR1"
+    load_exclusions "/home/ageorge/Desktop/Update-Script/exclusions_config"
+    log_message green "Configuration reloaded successfully."
+    echo "Configuration reloaded at $(date)" >>"$RUN_LOG"
+}
+
+# Cleanup function
+cleanup_function() {
+    log_message yellow "Performing cleanup..."
+    echo "Cleanup completed at $(date)" >>"$RUN_LOG"
+}
+
+# Error handling function with detailed output and retry
 handle_error() {
     local func_name="$1"
     local err="${2:-check}"
-    local retry_command="$3"
+    local retry_command="${3:-}"
     local retry_count=0
     local max_retries=3
     local backtrace_file="/tmp/error_backtrace.txt"
 
-    # Log the error message
-    log_message red "Error in function '${func_name}': ${err}"
+    local file_name="${BASH_SOURCE[1]}"
+    local line_number="${BASH_LINENO[0]}"
+    local error_code="$err"
+    local error_message="${BASH_COMMAND}"
 
-    # Write the error to a specific error log file
-    echo "Error in function '${func_name}': ${err}" >>"$LOCAL_UPDATE_ERROR"
+    echo -e "\n(!) EXIT HANDLER:\n" >&2
+    echo "FUNCTION:  ${func_name}" >&2
+    echo "FILE:       ${file_name}" >&2
+    echo "LINE:       ${line_number}" >&2
+    echo -e "\nERROR CODE: ${error_code}" >&2
+    echo -e "ERROR MESSAGE:\n${error_message}" >&2
 
-    # Generate backtrace
-    echo "Backtrace:" >>"$backtrace_file"
+    # Check specific error codes and provide custom handling
+    case "$error_code" in
+    1)
+        log_message yellow "General error occurred. Consider checking permissions or syntax."
+        ;;
+    2)
+        log_message yellow "Misuse of shell builtins. Verify the command syntax."
+        ;;
+    126)
+        log_message yellow "Command invoked cannot execute. Check file permissions."
+        ;;
+    127)
+        log_message yellow "Command not found. Ensure the command exists in your PATH."
+        ;;
+    130)
+        log_message yellow "Script terminated by Ctrl+C (SIGINT)."
+        ;;
+    *)
+        log_message yellow "An unexpected error occurred (Code: ${error_code})."
+        ;;
+    esac
+
+    # Generate the backtrace
+    echo -e "\nBACKTRACE IS:" >"$backtrace_file"
     local i=0
     while caller $i >>"$backtrace_file"; do
         ((i++))
     done
+    cat "$backtrace_file" >&2
 
-    # Temporarily disable errexit
+    # Retry logic if a command is specified
     set +e
-
-    # Implement retry logic
-    while [[ $retry_count -lt $max_retries ]]; do
-        log_message yellow "Retrying after error... Attempt $((retry_count + 1))/$max_retries"
-
-        # Retry the failed operation
-        if eval "$retry_command"; then
-            log_message green "Retried successfully on attempt $((retry_count + 1))"
-            return 0
-        fi
-
-        # Increase the retry count
-        ((retry_count++))
-
-        # Optional: Add a delay between retries (e.g., 5 seconds)
-        sleep 5
-    done
-
-    # Re-enable errexit
+    if [[ -n "$retry_command" ]]; then
+        while [[ $retry_count -lt $max_retries ]]; do
+            log_message yellow "Retrying after error... Attempt $((retry_count + 1))/$max_retries"
+            if eval "$retry_command"; then
+                log_message green "Retried successfully on attempt $((retry_count + 1))"
+                set -e
+                return 0
+            fi
+            ((retry_count++))
+            sleep $(((RANDOM % 5) + (2 ** retry_count)))
+        done
+    fi
     set -e
 
-    # If all retries fail, log the failure, print the backtrace, and exit the script
+    # If retries fail, perform cleanup and exit
     log_message red "All retries failed. Exiting script."
-    cat "$backtrace_file"
+    cleanup_function
+
     exit 1
 }
-
 
 # Trap errors and signals
 trap 'handle_error "$BASH_COMMAND" "$?"' ERR
 trap 'echo "Script terminated prematurely" >> "$RUN_LOG"; exit 1' SIGINT SIGTERM
 trap 'handle_error "SIGPIPE received" "$?"' SIGPIPE
+trap 'log_message yellow "Restarting script due to SIGHUP"; restart_script_function' SIGHUP
+trap 'log_message blue "Custom action for SIGUSR1"; custom_action' SIGUSR1
+trap 'cleanup_function' EXIT
 
 VERSION="1.2 (PiHole2)"
 LOG_FILE="/tmp/remote_update.log"
@@ -1760,67 +1840,107 @@ BACKUP_LOG_DIR="${BACKUP_LOG_DIR:-/default/backup_log_dir}"
 BACKUP_LOG_FILE="${BACKUP_LOG_FILE:-/default/backup_log_file.log}"
 
 
-# Enable error trapping
-set -o errexit # Enable strict error checking
-#set -o nounset # Exit if an unset variable is used
-set -o noglob # Disable filename expansion
-set -eE
+# Function to restart the script
+restart_script_function() {
+    log_message yellow "Restarting script..."
+    exec "$0" "$@"
+}
 
+# Function for custom action (SIGUSR1)
+custom_action() {
+    log_message blue "Performing custom action for SIGUSR1"
+    load_exclusions "/home/ageorge/Desktop/Update-Script/exclusions_config"
+    log_message green "Configuration reloaded successfully."
+    echo "Configuration reloaded at $(date)" >>"$RUN_LOG"
+}
+
+# Cleanup function
+cleanup_function() {
+    log_message yellow "Performing cleanup..."
+    echo "Cleanup completed at $(date)" >>"$RUN_LOG"
+}
+
+# Error handling function with detailed output and retry
 handle_error() {
     local func_name="$1"
     local err="${2:-check}"
-    local retry_command="$3"
+    local retry_command="${3:-}"
     local retry_count=0
     local max_retries=3
     local backtrace_file="/tmp/error_backtrace.txt"
 
-    # Log the error message
-    log_message red "Error in function '${func_name}': ${err}"
+    local file_name="${BASH_SOURCE[1]}"
+    local line_number="${BASH_LINENO[0]}"
+    local error_code="$err"
+    local error_message="${BASH_COMMAND}"
 
-    # Write the error to a specific error log file
-    echo "Error in function '${func_name}': ${err}" >>"$LOCAL_UPDATE_ERROR"
+    echo -e "\n(!) EXIT HANDLER:\n" >&2
+    echo "FUNCTION:  ${func_name}" >&2
+    echo "FILE:       ${file_name}" >&2
+    echo "LINE:       ${line_number}" >&2
+    echo -e "\nERROR CODE: ${error_code}" >&2
+    echo -e "ERROR MESSAGE:\n${error_message}" >&2
 
-    # Generate backtrace
-    echo "Backtrace:" >>"$backtrace_file"
+    # Check specific error codes and provide custom handling
+    case "$error_code" in
+    1)
+        log_message yellow "General error occurred. Consider checking permissions or syntax."
+        ;;
+    2)
+        log_message yellow "Misuse of shell builtins. Verify the command syntax."
+        ;;
+    126)
+        log_message yellow "Command invoked cannot execute. Check file permissions."
+        ;;
+    127)
+        log_message yellow "Command not found. Ensure the command exists in your PATH."
+        ;;
+    130)
+        log_message yellow "Script terminated by Ctrl+C (SIGINT)."
+        ;;
+    *)
+        log_message yellow "An unexpected error occurred (Code: ${error_code})."
+        ;;
+    esac
+
+    # Generate the backtrace
+    echo -e "\nBACKTRACE IS:" >"$backtrace_file"
     local i=0
     while caller $i >>"$backtrace_file"; do
         ((i++))
     done
+    cat "$backtrace_file" >&2
 
-    # Temporarily disable errexit
+    # Retry logic if a command is specified
     set +e
-
-    # Implement retry logic
-    while [[ $retry_count -lt $max_retries ]]; do
-        log_message yellow "Retrying after error... Attempt $((retry_count + 1))/$max_retries"
-
-        # Retry the failed operation
-        if eval "$retry_command"; then
-            log_message green "Retried successfully on attempt $((retry_count + 1))"
-            return 0
-        fi
-
-        # Increase the retry count
-        ((retry_count++))
-
-        # Optional: Add a delay between retries (e.g., 5 seconds)
-        sleep 5
-    done
-
-    # Re-enable errexit
+    if [[ -n "$retry_command" ]]; then
+        while [[ $retry_count -lt $max_retries ]]; do
+            log_message yellow "Retrying after error... Attempt $((retry_count + 1))/$max_retries"
+            if eval "$retry_command"; then
+                log_message green "Retried successfully on attempt $((retry_count + 1))"
+                set -e
+                return 0
+            fi
+            ((retry_count++))
+            sleep $(((RANDOM % 5) + (2 ** retry_count)))
+        done
+    fi
     set -e
 
-    # If all retries fail, log the failure, print the backtrace, and exit the script
+    # If retries fail, perform cleanup and exit
     log_message red "All retries failed. Exiting script."
-    cat "$backtrace_file"
+    cleanup_function
+
     exit 1
 }
-
 
 # Trap errors and signals
 trap 'handle_error "$BASH_COMMAND" "$?"' ERR
 trap 'echo "Script terminated prematurely" >> "$RUN_LOG"; exit 1' SIGINT SIGTERM
 trap 'handle_error "SIGPIPE received" "$?"' SIGPIPE
+trap 'log_message yellow "Restarting script due to SIGHUP"; restart_script_function' SIGHUP
+trap 'log_message blue "Custom action for SIGUSR1"; custom_action' SIGUSR1
+trap 'cleanup_function' EXIT
 
 VERSION="1.2 (pihole.main)"
 LOG_FILE="/tmp/remote_update.log"
