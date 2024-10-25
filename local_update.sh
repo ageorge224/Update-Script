@@ -2,8 +2,8 @@
 
 # Enable error trapping
 set -o errexit # Enable strict error checking
-#set -o nounset # Exit if an unset variable is used
-set -o noglob # Disable filename expansion
+set -o nounset # Exit if an unset variable is used
+set -o noglob  # Disable filename expansion
 set -eE
 set -o pipefail # trace ERR through pipes
 set -o errtrace # trace ERR through 'time command' and other functions
@@ -192,27 +192,37 @@ LAST_RUN_FILE="$CACHE_DIR/last_run"
 
 # Function to log messages with color
 log_message() {
-    local color=$1
-    local message=$2
-    case $color in
-    red) color_code="\e[31m" ;;
-    green) color_code="\e[32m" ;;
-    yellow) color_code="\e[33m" ;;
-    blue) color_code="\e[34m" ;;
-    magenta) color_code="\e[35m" ;;
-    cyan) color_code="\e[36m" ;;
-    white) color_code="\e[37m" ;;
-    gray) color_code="\e[90m" ;;
-    light_red) color_code="\e[91m" ;;
-    light_green) color_code="\e[92m" ;;
-    light_yellow) color_code="\e[93m" ;;
-    light_blue) color_code="\e[94m" ;;
-    light_magenta) color_code="\e[95m" ;;
-    light_cyan) color_code="\e[96m" ;;
-    *) color_code="" ;;
-    esac
+    local color_code=""
+    local message=""
+
+    if [ "$#" -eq 1 ]; then
+        # Single parameter case - just the message
+        message="$1"
+    elif [ "$#" -eq 2 ]; then
+        # Two parameter case - color and message
+        case "$1" in
+        red) color_code="\e[31m" ;;
+        green) color_code="\e[32m" ;;
+        yellow) color_code="\e[33m" ;;
+        blue) color_code="\e[34m" ;;
+        magenta) color_code="\e[35m" ;;
+        cyan) color_code="\e[36m" ;;
+        white) color_code="\e[37m" ;;
+        gray) color_code="\e[90m" ;;
+        light_red) color_code="\e[91m" ;;
+        light_green) color_code="\e[92m" ;;
+        light_yellow) color_code="\e[93m" ;;
+        light_blue) color_code="\e[94m" ;;
+        light_magenta) color_code="\e[95m" ;;
+        light_cyan) color_code="\e[96m" ;;
+        *) color_code="" ;;
+        esac
+        message="$2"
+    fi
+
     echo -e "${color_code}${message}\e[0m" | tee -a "$LOG_FILE"
 }
+
 # Example usage (assuming log_functions.sh defines functions for logging)
 log_message "This script is located in $(dirname "$0")"
 
@@ -1147,24 +1157,41 @@ check_restart_required
 
 # Check Unbound DNSSEC status with trimmed output and error handling
 dnssec_query() {
-    local result
+    local result=""
+    local pihole_ip="192.168.1.248"
+
+    # Test DNS connectivity first
+    if ! dig @"${pihole_ip}" google.com +short +timeout=2 +tries=1 >/dev/null 2>&1; then
+        echo "DNS server at ${pihole_ip} is not responding" >&2
+        return 1
+    fi
+
     # Use dig with the necessary flags to reduce output and avoid hanging
-    result=$(dig dnssec.works @pi.hole +dnssec +nocmd +noall +answer) || handle_error "dnssec_query" "Failed to query DNSSEC status." "dnssec_query"
+    result=$(dig dnssec.works @"${pihole_ip}" +dnssec +nocmd +noall +answer +timeout=2 +tries=1 2>/dev/null) || {
+        echo "Failed to query DNSSEC status" >&2
+        return 1
+    }
 
     if [[ -z "$result" ]]; then
-        handle_error "dnssec_query" "No valid DNSSEC response found." "dnssec_query"
+        echo "No valid DNSSEC response found" >&2
+        return 1
     fi
 
     # Check if the result contains DNSSEC validation
-    if echo "$result" | grep -q "RRSIG"; then
+    if grep -q "RRSIG" <<<"$result"; then
         echo "DNSSEC validation passed"
+        return 0
     else
-        handle_error "dnssec_query" "DNSSEC validation failed." "dnssec_query"
+        echo "DNSSEC validation failed" >&2
+        return 1
     fi
 }
 
 # Call the function and store the result
-dnssec_result=$(dnssec_query)
+if ! dnssec_result="$(dnssec_query)"; then
+    log_message red "DNSSEC check failed"
+    exit 1
+fi
 
 # Print the result if no error occurred
 echo "DNSSEC result for dnssec.works: $dnssec_result"
@@ -1588,24 +1615,41 @@ check_restart_required
 
 # Check Unbound DNSSEC status with trimmed output and error handling
 dnssec_query() {
-    local result
+    local result=""
+    local pihole_ip="192.168.1.248"
+
+    # Test DNS connectivity first
+    if ! dig @"${pihole_ip}" google.com +short +timeout=2 +tries=1 >/dev/null 2>&1; then
+        echo "DNS server at ${pihole_ip} is not responding" >&2
+        return 1
+    fi
+
     # Use dig with the necessary flags to reduce output and avoid hanging
-    result=$(dig dnssec.works @pi.hole +dnssec +nocmd +noall +answer) || handle_error "dnssec_query" "Failed to query DNSSEC status." "dnssec_query"
+    result=$(dig dnssec.works @"${pihole_ip}" +dnssec +nocmd +noall +answer +timeout=2 +tries=1 2>/dev/null) || {
+        echo "Failed to query DNSSEC status" >&2
+        return 1
+    }
 
     if [[ -z "$result" ]]; then
-        handle_error "dnssec_query" "No valid DNSSEC response found." "dnssec_query"
+        echo "No valid DNSSEC response found" >&2
+        return 1
     fi
 
     # Check if the result contains DNSSEC validation
-    if echo "$result" | grep -q "RRSIG"; then
+    if grep -q "RRSIG" <<<"$result"; then
         echo "DNSSEC validation passed"
+        return 0
     else
-        handle_error "dnssec_query" "DNSSEC validation failed." "dnssec_query"
+        echo "DNSSEC validation failed" >&2
+        return 1
     fi
 }
 
 # Call the function and store the result
-dnssec_result=$(dnssec_query)
+if ! dnssec_result="$(dnssec_query)"; then
+    log_message red "DNSSEC check failed"
+    exit 1
+fi
 
 # Print the result if no error occurred
 echo "DNSSEC result for dnssec.works: $dnssec_result"
@@ -2402,100 +2446,110 @@ fi
 
 # Function to generate and display system info
 get_system_identification() {
-    {
-        echo -e "\n\e[36mSystem Identification:\e[0m"
-        echo
+    if ! echo -e "\n\e[36mSystem Identification:\e[0m"; then
+        return 1
+    fi
+    echo
 
-        # System Info
-        printf "\e[36m%-18s\e[0m \e[32m%s\e[0m\n" "Hostname:" "$(hostname)"
-        printf "\e[36m%-18s\e[0m \e[32m%s\e[0m\n" "Operating System:" "$(lsb_release -d | cut -f2)"
-        printf "\e[36m%-18s\e[0m \e[32m%s\e[0m\n" "Kernel Version:" "$(uname -r)"
+    # System Info
+    if ! printf "\e[36m%-18s\e[0m \e[32m%s\e[0m\n" "Hostname:" "$(hostname)"; then
+        return 1
+    fi
+    if ! printf "\e[36m%-18s\e[0m \e[32m%s\e[0m\n" "Operating System:" "$(lsb_release -d | cut -f2)"; then
+        return 1
+    fi
+    if ! printf "\e[36m%-18s\e[0m \e[32m%s\e[0m\n" "Kernel Version:" "$(uname -r)"; then
+        return 1
+    fi
 
-        # CPU Info
-        cpu_info=$(lscpu | grep 'Model name' | sed 's/Model name:[[:space:]]*//')
-        cpu_cores=$(lscpu | grep '^CPU(s):' | awk '{print $2}')
-        if [[ -n "$cpu_info" && -n "$cpu_cores" ]]; then
-            printf "\e[36m%-18s\e[0m \e[32m%s (%s cores)\e[0m\n" "CPU Info:" "$cpu_info" "$cpu_cores"
-        else
-            echo "Error retrieving CPU info."
+    # CPU Info
+    cpu_info=$(lscpu | grep 'Model name' | sed 's/Model name:[[:space:]]*//')
+    cpu_cores=$(lscpu | grep '^CPU(s):' | awk '{print $2}')
+    if [[ -n "$cpu_info" && -n "$cpu_cores" ]]; then
+        if ! printf "\e[36m%-18s\e[0m \e[32m%s (%s cores)\e[0m\n" "CPU Info:" "$cpu_info" "$cpu_cores"; then
+            return 1
         fi
+    else
+        echo "Error retrieving CPU info." >&2
+        return 1
+    fi
 
-        # GPU Info
-        gpu_info=$(lspci | grep -i vga | sed 's/.*: //')
-        if [[ -n "$gpu_info" ]]; then
-            printf "\e[36m%-18s\e[0m \e[32m%s\e[0m\n" "GPU Info:" "$gpu_info"
-        else
-            echo "Error retrieving GPU info."
-        fi
+    # Disk Info
+    echo -e "\e[36mDisk Info:\e[0m"
+    echo -e "\e[36mDrives:\e[0m"
+    printf "\e[36m%-10s %-30s %-10s %-15s\e[0m\n" "Device" "Model" "Size" "Used"
 
-        # Memory Info
-        total_mem=$(free -h | awk '/^Mem:/ {print $2}')
-        used_mem=$(free -h | awk '/^Mem:/ {print $3}')
-        if [[ -n "$total_mem" && -n "$used_mem" ]]; then
-            printf "\e[36m%-18s\e[0m \e[32m%s / %s\e[0m\n" "Memory Info:" "$used_mem" "$total_mem"
-        else
-            echo "Error retrieving memory info."
-        fi
+    lsblk_output=$(lsblk -d -o NAME,MODEL,SIZE | grep -v 'loop')
+    if [[ -n "$lsblk_output" ]]; then
+        echo "$lsblk_output" | while read -r name model size; do
+            df_output=$(df -h | grep "^/dev/${name}")
+            if [[ $? -eq 0 && -n "$df_output" ]]; then
+                used=$(echo "$df_output" | awk '{print $3}')
+            else
+                used="N/A"
+            fi
+            printf "\e[32m%-10s %-30s %-10s %-15s\e[0m\n" "$name" "${model:0:30}" "$size" "$used"
+        done
+    else
+        echo "No matching drives found."
+    fi
 
-        # Disk Info
-        echo -e "\e[36mDisk Info:\e[0m"
-        echo -e "\e[36mDrives:\e[0m"
-        printf "\e[36m%-10s %-30s %-10s %-15s\e[0m\n" "Device" "Model" "Size" "Used"
+    # Network Info
+    ip_output=$(ip -br addr show | grep -v '^lo')
+    if [[ -n "$ip_output" ]]; then
+        echo -e "\n\e[36mNetwork Info:\e[0m"
+        echo "$ip_output" | while read -r iface ip; do
+            printf "  \e[36m%-12s\e[0m \e[32m%s\e[0m\n" "$iface" "$ip"
+        done
+    else
+        echo "Error retrieving network info."
+    fi
 
-        lsblk_output=$(lsblk -d -o NAME,MODEL,SIZE | grep -v 'loop')
-        if [[ -n "$lsblk_output" ]]; then
-            echo "$lsblk_output" | while read -r name model size; do
-                df_output=$(df -h | grep "^/dev/${name}")
-                if [[ $? -eq 0 && -n "$df_output" ]]; then
-                    used=$(echo "$df_output" | awk '{print $3}')
-                else
-                    used="N/A"
-                fi
-                printf "\e[32m%-10s %-30s %-10s %-15s\e[0m\n" "$name" "${model:0:30}" "$size" "$used"
-            done
-        else
-            echo "No matching drives found."
-        fi
-
-        # Network Info
-        ip_output=$(ip -br addr show | grep -v '^lo')
-        if [[ -n "$ip_output" ]]; then
-            echo -e "\n\e[36mNetwork Info:\e[0m"
-            echo "$ip_output" | while read -r iface ip; do
-                printf "  \e[36m%-12s\e[0m \e[32m%s\e[0m\n" "$iface" "$ip"
-            done
-        else
-            echo "Error retrieving network info."
-        fi
-
-        echo
-    } || handle_error "get_system_identification" "$?"
+    echo
+    return 0
 }
 
 # Run system identification
-get_system_identification
+get_system_identification || handle_error "get_system_identification" "$?"
 get_log_info2
 
 # Check Unbound DNSSEC status with trimmed output and error handling
 dnssec_query() {
-    local result
+    local result=""
+    local pihole_ip="192.168.1.248"
+
+    # Test DNS connectivity first
+    if ! dig @"${pihole_ip}" google.com +short +timeout=2 +tries=1 >/dev/null 2>&1; then
+        echo "DNS server at ${pihole_ip} is not responding" >&2
+        return 1
+    fi
+
     # Use dig with the necessary flags to reduce output and avoid hanging
-    result=$(dig dnssec.works @pi.hole +dnssec +nocmd +noall +answer) || handle_error "dnssec_query" "Failed to query DNSSEC status." "dnssec_query"
+    result=$(dig dnssec.works @"${pihole_ip}" +dnssec +nocmd +noall +answer +timeout=2 +tries=1 2>/dev/null) || {
+        echo "Failed to query DNSSEC status" >&2
+        return 1
+    }
 
     if [[ -z "$result" ]]; then
-        handle_error "dnssec_query" "No valid DNSSEC response found." "dnssec_query"
+        echo "No valid DNSSEC response found" >&2
+        return 1
     fi
 
     # Check if the result contains DNSSEC validation
-    if echo "$result" | grep -q "RRSIG"; then
+    if grep -q "RRSIG" <<<"$result"; then
         echo "DNSSEC validation passed"
+        return 0
     else
-        handle_error "dnssec_query" "DNSSEC validation failed." "dnssec_query"
+        echo "DNSSEC validation failed" >&2
+        return 1
     fi
 }
 
 # Call the function and store the result
-dnssec_result=$(dnssec_query)
+if ! dnssec_result="$(dnssec_query)"; then
+    log_message red "DNSSEC check failed"
+    exit 1
+fi
 
 # Print the result if no error occurred
 echo "DNSSEC result for dnssec.works: $dnssec_result"
@@ -3060,7 +3114,7 @@ scan_and_classify_logs() {
     }
 
     # Define the maximum number of error lines to display
-    MAX_ERRORS=5
+    MAX_ERRORS=2
     error_count=0
     timestamp=$(date)
 
@@ -3085,9 +3139,6 @@ scan_and_classify_logs() {
         echo "$errors" >>"$LOCAL_UPDATE_ERROR"
         echo "$errors" >>"$SEEN_ERRORS_FILE"
     }
-
-    cat "$SEEN_ERRORS_FILE" >>"$LOCAL_UPDATE_ERROR"
-    cat "$centralized_error_log" >>"$LOCAL_UPDATE_ERROR"
 
     # Export the functions and variables for parallel execution
     export -f process_log process_log_content remote_log_scan
