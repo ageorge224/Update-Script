@@ -3255,9 +3255,7 @@ scan_and_classify_logs() {
         done
 
         # Write all errors at once to avoid multiple disk writes
-        echo "$errors" >>"$centralized_error_log"
         echo "$errors" >>"$LOCAL_UPDATE_ERROR"
-        echo "$errors" >>"$SEEN_ERRORS_FILE"
     }
 
     # Export the functions and variables for parallel execution
