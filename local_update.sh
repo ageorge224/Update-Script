@@ -73,6 +73,8 @@ cleanup_function() {
 
 # Error handling function with detailed output and retry
 handle_error() {
+    set +e # Disable immediate exit on error
+
     local func_name="$1"
     local err="${2:-check}"
     local retry_command="${3:-}"
@@ -118,29 +120,31 @@ handle_error() {
     echo -e "\nBACKTRACE IS:" >"$backtrace_file"
     local i=0
     while caller $i >>"$backtrace_file"; do
-        ((i++))
+        # shellcheck disable=SC2219
+        let "i++"
     done
     cat "$backtrace_file" >&2
 
     # Retry logic if a command is specified
-    set +e
     if [[ -n "$retry_command" ]]; then
         while [[ $retry_count -lt $max_retries ]]; do
             log_message yellow "Retrying after error... Attempt $((retry_count + 1))/$max_retries"
             if eval "$retry_command"; then
                 log_message green "Retried successfully on attempt $((retry_count + 1))"
-                set -e
+                set -e # Re-enable immediate exit on error before returning
                 return 0
             fi
-            ((retry_count++))
+            # shellcheck disable=SC2219
+            let "retry_count++"
             sleep $(((RANDOM % 5) + (2 ** retry_count)))
         done
     fi
-    set -e
 
     # If retries fail, perform cleanup and exit
     log_message red "All retries failed. Exiting script."
     cleanup_function
+
+    set -e # Re-enable immediate exit on error at the end
 
     exit 1
 }
@@ -154,7 +158,7 @@ trap 'log_message blue "Custom action for SIGUSR1"; custom_action' SIGUSR1
 trap 'cleanup_function' EXIT
 
 # Variables
-VERSION="1.3.000.002"
+VERSION="1.3.000.005"
 DRY_RUN=false
 
 # VConstants
@@ -1093,19 +1097,19 @@ validate_remote_environment() {
 # Function to generate and display system info
 get_system_identification() {
     if ! echo -e "\n\e[36mSystem Identification:\e[0m"; then
-        return 1
+        exit 1
     fi
     echo
 
     # System Info
     if ! printf "\e[36m%-18s\e[0m \e[32m%s\e[0m\n" "Hostname:" "$(hostname)"; then
-        return 1
+        exit 1
     fi
     if ! printf "\e[36m%-18s\e[0m \e[32m%s\e[0m\n" "Operating System:" "$(lsb_release -d | cut -f2)"; then
-        return 1
+        exit 1
     fi
     if ! printf "\e[36m%-18s\e[0m \e[32m%s\e[0m\n" "Kernel Version:" "$(uname -r)"; then
-        return 1
+        exit 1
     fi
 
     # CPU Info
@@ -1113,32 +1117,33 @@ get_system_identification() {
     cpu_cores=$(lscpu | grep '^CPU(s):' | awk '{print $2}')
     if [[ -n "$cpu_info" && -n "$cpu_cores" ]]; then
         if ! printf "\e[36m%-18s\e[0m \e[32m%s (%s cores)\e[0m\n" "CPU Info:" "$cpu_info" "$cpu_cores"; then
-            return 1
+            exit 1
         fi
     else
         echo "Error retrieving CPU info." >&2
-        return 1
+        exit 1
     fi
 
     # Disk Info
-    echo -e "\e[36mDisk Info:\e[0m"
-    echo -e "\e[36mDrives:\e[0m"
-    printf "\e[36m%-10s %-30s %-10s %-15s\e[0m\n" "Device" "Model" "Size" "Used"
+echo -e "\e[36mDisk Info:\e[0m"
+echo -e "\e[36mDrives:\e[0m"
+printf "\e[36m%-10s %-30s %-10s %-15s\e[0m\n" "Device" "Model" "Size" "Used"
 
-    lsblk_output=$(lsblk -d -o NAME,MODEL,SIZE | grep -v 'loop')
-    if [[ -n "$lsblk_output" ]]; then
-        echo "$lsblk_output" | while read -r name model size; do
-            df_output=$(df -h | grep "^/dev/${name}")
-            if [[ $? -eq 0 && -n "$df_output" ]]; then
-                used=$(echo "$df_output" | awk '{print $3}')
-            else
-                used="N/A"
-            fi
-            printf "\e[32m%-10s %-30s %-10s %-15s\e[0m\n" "$name" "${model:0:30}" "$size" "$used"
-        done
-    else
-        echo "No matching drives found."
-    fi
+# Using -n to suppress headers from lsblk
+lsblk_output=$(lsblk -d -n -o NAME,MODEL,SIZE | grep -v 'loop')
+if [[ -n "$lsblk_output" ]]; then
+    echo "$lsblk_output" | while read -r name model size; do
+        df_output=$(df -h | grep "^/dev/${name}")
+        if [[ $? -eq 0 && -n "$df_output" ]]; then
+            used=$(echo "$df_output" | awk '{print $3}')
+        else
+            used="N/A"
+        fi
+        printf "\e[32m%-10s %-30s %-10s %-15s\e[0m\n" "$name" "${model:0:30}" "$size" "$used"
+    done
+else
+    echo "No matching drives found."
+fi
 
     # Network Info
     ip_output=$(ip -br addr show | grep -v '^lo')
@@ -1612,19 +1617,19 @@ validate_remote_environment() {
 # Function to generate and display system info
 get_system_identification() {
     if ! echo -e "\n\e[36mSystem Identification:\e[0m"; then
-        return 1
+        exit 1
     fi
     echo
 
     # System Info
     if ! printf "\e[36m%-18s\e[0m \e[32m%s\e[0m\n" "Hostname:" "$(hostname)"; then
-        return 1
+        exit 1
     fi
     if ! printf "\e[36m%-18s\e[0m \e[32m%s\e[0m\n" "Operating System:" "$(lsb_release -d | cut -f2)"; then
-        return 1
+        exit 1
     fi
     if ! printf "\e[36m%-18s\e[0m \e[32m%s\e[0m\n" "Kernel Version:" "$(uname -r)"; then
-        return 1
+        exit 1
     fi
 
     # CPU Info
@@ -1632,32 +1637,33 @@ get_system_identification() {
     cpu_cores=$(lscpu | grep '^CPU(s):' | awk '{print $2}')
     if [[ -n "$cpu_info" && -n "$cpu_cores" ]]; then
         if ! printf "\e[36m%-18s\e[0m \e[32m%s (%s cores)\e[0m\n" "CPU Info:" "$cpu_info" "$cpu_cores"; then
-            return 1
+            exit 1
         fi
     else
         echo "Error retrieving CPU info." >&2
-        return 1
+        exit 1
     fi
 
     # Disk Info
-    echo -e "\e[36mDisk Info:\e[0m"
-    echo -e "\e[36mDrives:\e[0m"
-    printf "\e[36m%-10s %-30s %-10s %-15s\e[0m\n" "Device" "Model" "Size" "Used"
+echo -e "\e[36mDisk Info:\e[0m"
+echo -e "\e[36mDrives:\e[0m"
+printf "\e[36m%-10s %-30s %-10s %-15s\e[0m\n" "Device" "Model" "Size" "Used"
 
-    lsblk_output=$(lsblk -d -o NAME,MODEL,SIZE | grep -v 'loop')
-    if [[ -n "$lsblk_output" ]]; then
-        echo "$lsblk_output" | while read -r name model size; do
-            df_output=$(df -h | grep "^/dev/${name}")
-            if [[ $? -eq 0 && -n "$df_output" ]]; then
-                used=$(echo "$df_output" | awk '{print $3}')
-            else
-                used="N/A"
-            fi
-            printf "\e[32m%-10s %-30s %-10s %-15s\e[0m\n" "$name" "${model:0:30}" "$size" "$used"
-        done
-    else
-        echo "No matching drives found."
-    fi
+# Using -n to suppress headers from lsblk
+lsblk_output=$(lsblk -d -n -o NAME,MODEL,SIZE | grep -v 'loop')
+if [[ -n "$lsblk_output" ]]; then
+    echo "$lsblk_output" | while read -r name model size; do
+        df_output=$(df -h | grep "^/dev/${name}")
+        if [[ $? -eq 0 && -n "$df_output" ]]; then
+            used=$(echo "$df_output" | awk '{print $3}')
+        else
+            used="N/A"
+        fi
+        printf "\e[32m%-10s %-30s %-10s %-15s\e[0m\n" "$name" "${model:0:30}" "$size" "$used"
+    done
+else
+    echo "No matching drives found."
+fi
 
     # Network Info
     ip_output=$(ip -br addr show | grep -v '^lo')
@@ -2130,19 +2136,19 @@ validate_remote_environment() {
 # Function to generate and display system info
 get_system_identification() {
     if ! echo -e "\n\e[36mSystem Identification:\e[0m"; then
-        return 1
+        exit 1
     fi
     echo
 
     # System Info
     if ! printf "\e[36m%-18s\e[0m \e[32m%s\e[0m\n" "Hostname:" "$(hostname)"; then
-        return 1
+        exit 1
     fi
     if ! printf "\e[36m%-18s\e[0m \e[32m%s\e[0m\n" "Operating System:" "$(lsb_release -d | cut -f2)"; then
-        return 1
+        exit 1
     fi
     if ! printf "\e[36m%-18s\e[0m \e[32m%s\e[0m\n" "Kernel Version:" "$(uname -r)"; then
-        return 1
+        exit 1
     fi
 
     # CPU Info
@@ -2150,32 +2156,33 @@ get_system_identification() {
     cpu_cores=$(lscpu | grep '^CPU(s):' | awk '{print $2}')
     if [[ -n "$cpu_info" && -n "$cpu_cores" ]]; then
         if ! printf "\e[36m%-18s\e[0m \e[32m%s (%s cores)\e[0m\n" "CPU Info:" "$cpu_info" "$cpu_cores"; then
-            return 1
+            exit 1
         fi
     else
         echo "Error retrieving CPU info." >&2
-        return 1
+        exit 1
     fi
 
     # Disk Info
-    echo -e "\e[36mDisk Info:\e[0m"
-    echo -e "\e[36mDrives:\e[0m"
-    printf "\e[36m%-10s %-30s %-10s %-15s\e[0m\n" "Device" "Model" "Size" "Used"
+echo -e "\e[36mDisk Info:\e[0m"
+echo -e "\e[36mDrives:\e[0m"
+printf "\e[36m%-10s %-30s %-10s %-15s\e[0m\n" "Device" "Model" "Size" "Used"
 
-    lsblk_output=$(lsblk -d -o NAME,MODEL,SIZE | grep -v 'loop')
-    if [[ -n "$lsblk_output" ]]; then
-        echo "$lsblk_output" | while read -r name model size; do
-            df_output=$(df -h | grep "^/dev/${name}")
-            if [[ $? -eq 0 && -n "$df_output" ]]; then
-                used=$(echo "$df_output" | awk '{print $3}')
-            else
-                used="N/A"
-            fi
-            printf "\e[32m%-10s %-30s %-10s %-15s\e[0m\n" "$name" "${model:0:30}" "$size" "$used"
-        done
-    else
-        echo "No matching drives found."
-    fi
+# Using -n to suppress headers from lsblk
+lsblk_output=$(lsblk -d -n -o NAME,MODEL,SIZE | grep -v 'loop')
+if [[ -n "$lsblk_output" ]]; then
+    echo "$lsblk_output" | while read -r name model size; do
+        df_output=$(df -h | grep "^/dev/${name}")
+        if [[ $? -eq 0 && -n "$df_output" ]]; then
+            used=$(echo "$df_output" | awk '{print $3}')
+        else
+            used="N/A"
+        fi
+        printf "\e[32m%-10s %-30s %-10s %-15s\e[0m\n" "$name" "${model:0:30}" "$size" "$used"
+    done
+else
+    echo "No matching drives found."
+fi
 
     # Network Info
     ip_output=$(ip -br addr show | grep -v '^lo')
@@ -2665,10 +2672,10 @@ get_system_identification() {
 
     # Disk Info
     echo -e "\e[36mDisk Info:\e[0m"
-    echo -e "\e[36mDrives:\e[0m"
     printf "\e[36m%-10s %-30s %-10s %-15s\e[0m\n" "Device" "Model" "Size" "Used"
 
-    lsblk_output=$(lsblk -d -o NAME,MODEL,SIZE | grep -v 'loop')
+    # Suppressing headers from lsblk with the -n option
+    lsblk_output=$(lsblk -d -n -o NAME,MODEL,SIZE | grep -v 'loop')
     if [[ -n "$lsblk_output" ]]; then
         echo "$lsblk_output" | while read -r name model size; do
             df_output=$(df -h | grep "^/dev/${name}")
