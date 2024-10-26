@@ -2632,13 +2632,17 @@ ensure_checksum_utility() {
 # Announce the version
 log_message cyan "Starting script version $VERSION"
 
-# Backup log file if it exists
-if [ -f "$LOG_FILE" ]; then
-    {
+backup_log_file() {
+    local log_file="$1"
+    local backup_file="$2"
+
+    if [[ -f "$log_file" ]]; then
         log_message yellow "Backing up existing log file..."
-        cat "$LOG_FILE" >>"$BACKUP_LOG_FILE"
-    } || handle_error "backup_log_file" "$?"
-fi
+        cat "$log_file" >>"$backup_file" || handle_error "backup_log_file" $?
+    fi
+}
+
+backup_log_file "$LOG_FILE" "$BACKUP_LOG_FILE"
 
 # Function to generate and display system info
 get_system_identification() {
