@@ -154,7 +154,7 @@ trap 'log_message blue "Custom action for SIGUSR1"; custom_action' SIGUSR1
 trap 'cleanup_function' EXIT
 
 # Variables
-VERSION="1.2.998.101"
+VERSION="1.3.000.002"
 DRY_RUN=false
 
 # VConstants
@@ -831,6 +831,14 @@ create_remote_script3() {
     cat <<'EOF' >"$AG_Backup_local"
 #!/bin/bash
 
+# Enable error trapping
+set -o errexit # Enable strict error checking
+set -o nounset # Exit if an unset variable is used
+set -o noglob  # Disable filename expansion
+set -eE
+set -o pipefail # trace ERR through pipes
+set -o errtrace # trace ERR through 'time command' and other functions
+
 # Initialize unset variables with defaults
 AG_backup="${AG_backup:-192.168.1.238}"
 BACKUP_DIR="${BACKUP_DIR:-/default/backup/dir}"
@@ -845,6 +853,56 @@ LOCAL_UPDATE_DEBUG="${LOCAL_UPDATE_DEBUG:-/default/local_update_debug.log}"
 BACKUP_LOG_DIR="${BACKUP_LOG_DIR:-/default/backup_log_dir}"
 BACKUP_LOG_FILE="${BACKUP_LOG_FILE:-/default/backup_log_file.log}"
 
+# Variables
+VERSION="1.2 (AgeorgeBackup)"
+LOG_FILE="/tmp/remote_update.log"
+BACKUP_LOG_DIR="$HOME/Desktop"
+BACKUP_LOG_FILE="$BACKUP_LOG_DIR/remote_update3.log"
+SUDO_ASKPASS_PATH="$HOME/sudo_askpass.sh"
+RUN_LOG="/tmp/remote_run_log.txt"
+ERROR_LOG="/tmp/remote_error_log.txt"
+REMOTE_SCRIPT_LOCAL3="/tmp/remote_update3.sh"
+HostnameID="AGeorge-Backup.home"
+
+# shellcheck disable=SC2269
+DRY_RUN="${DRY_RUN:-false}" # Pass DRY_RUN from the main script
+
+
+# Export SUDO_ASKPASS
+export SUDO_ASKPASS="$SUDO_ASKPASS_PATH"
+
+# Function to log messages with color
+log_message() {
+    local color_code=""
+    local message=""
+
+    if [ "$#" -eq 1 ]; then
+        # Single parameter case - just the message
+        message="$1"
+    elif [ "$#" -eq 2 ]; then
+        # Two parameter case - color and message
+        case "$1" in
+        red) color_code="\e[31m" ;;
+        green) color_code="\e[32m" ;;
+        yellow) color_code="\e[33m" ;;
+        blue) color_code="\e[34m" ;;
+        magenta) color_code="\e[35m" ;;
+        cyan) color_code="\e[36m" ;;
+        white) color_code="\e[37m" ;;
+        gray) color_code="\e[90m" ;;
+        light_red) color_code="\e[91m" ;;
+        light_green) color_code="\e[92m" ;;
+        light_yellow) color_code="\e[93m" ;;
+        light_blue) color_code="\e[94m" ;;
+        light_magenta) color_code="\e[95m" ;;
+        light_cyan) color_code="\e[96m" ;;
+        *) color_code="" ;;
+        esac
+        message="$2"
+    fi
+
+    echo -e "${color_code}${message}\e[0m" | tee -a "$LOG_FILE"
+}
 
 # Function to restart the script
 restart_script_function() {
@@ -948,45 +1006,6 @@ trap 'log_message yellow "Restarting script due to SIGHUP"; restart_script_funct
 trap 'log_message blue "Custom action for SIGUSR1"; custom_action' SIGUSR1
 trap 'cleanup_function' EXIT
 
-VERSION="1.2 (AgeorgeBackup)"
-LOG_FILE="/tmp/remote_update.log"
-BACKUP_LOG_DIR="$HOME/Desktop"
-BACKUP_LOG_FILE="$BACKUP_LOG_DIR/remote_update3.log"
-SUDO_ASKPASS_PATH="$HOME/sudo_askpass.sh"
-RUN_LOG="/tmp/remote_run_log.txt"
-ERROR_LOG="/tmp/remote_error_log.txt"
-REMOTE_SCRIPT_LOCAL3="/tmp/remote_update3.sh"
-# shellcheck disable=SC2269
-DRY_RUN="$DRY_RUN" # Pass DRY_RUN from the main script
-HostnameID="AGeorge-Backup.home"
-
-# Function to log messages with color
-log_message() {
-    local color=$1
-    local message=$2
-    case $color in
-    red) color_code="\e[31m" ;;
-    green) color_code="\e[32m" ;;
-    yellow) color_code="\e[33m" ;;
-    blue) color_code="\e[34m" ;;
-    magenta) color_code="\e[35m" ;;
-    cyan) color_code="\e[36m" ;;
-    white) color_code="\e[37m" ;;
-    gray) color_code="\e[90m" ;;
-    light_red) color_code="\e[91m" ;;
-    light_green) color_code="\e[92m" ;;
-    light_yellow) color_code="\e[93m" ;;
-    light_blue) color_code="\e[94m" ;;
-    light_magenta) color_code="\e[95m" ;;
-    light_cyan) color_code="\e[96m" ;;
-    *) color_code="" ;;
-    esac
-    echo -e "${color_code}${message}\e[0m" | tee -a "$LOG_FILE"
-}
-
-# Export SUDO_ASKPASS
-export SUDO_ASKPASS="$SUDO_ASKPASS_PATH"
-
 # Initialize RUN_LOG and ERROR_LOG
 true >"$RUN_LOG"
 true >"$ERROR_LOG"
@@ -1073,66 +1092,71 @@ validate_remote_environment() {
 
 # Function to generate and display system info
 get_system_identification() {
-    {
-        echo -e "\n\e[36mSystem Identification:\e[0m"
-        echo
+    if ! echo -e "\n\e[36mSystem Identification:\e[0m"; then
+        return 1
+    fi
+    echo
 
-        # System Info
-        printf "\e[36m%-18s\e[0m \e[32m%s\e[0m\n" "Hostname:" "$(hostname)"
-        printf "\e[36m%-18s\e[0m \e[32m%s\e[0m\n" "Operating System:" "$(lsb_release -d | cut -f2)"
-        printf "\e[36m%-18s\e[0m \e[32m%s\e[0m\n" "Kernel Version:" "$(uname -r)"
+    # System Info
+    if ! printf "\e[36m%-18s\e[0m \e[32m%s\e[0m\n" "Hostname:" "$(hostname)"; then
+        return 1
+    fi
+    if ! printf "\e[36m%-18s\e[0m \e[32m%s\e[0m\n" "Operating System:" "$(lsb_release -d | cut -f2)"; then
+        return 1
+    fi
+    if ! printf "\e[36m%-18s\e[0m \e[32m%s\e[0m\n" "Kernel Version:" "$(uname -r)"; then
+        return 1
+    fi
 
-        # CPU Info
-        cpu_info=$(lscpu | grep 'Model name' | sed 's/Model name:[[:space:]]*//')
-        cpu_cores=$(lscpu | grep '^CPU(s):' | awk '{print $2}')
-        printf "\e[36m%-18s\e[0m \e[32m%s (%s cores)\e[0m\n" "CPU Info:" "$cpu_info" "$cpu_cores"
+    # CPU Info
+    cpu_info=$(lscpu | grep 'Model name' | sed 's/Model name:[[:space:]]*//')
+    cpu_cores=$(lscpu | grep '^CPU(s):' | awk '{print $2}')
+    if [[ -n "$cpu_info" && -n "$cpu_cores" ]]; then
+        if ! printf "\e[36m%-18s\e[0m \e[32m%s (%s cores)\e[0m\n" "CPU Info:" "$cpu_info" "$cpu_cores"; then
+            return 1
+        fi
+    else
+        echo "Error retrieving CPU info." >&2
+        return 1
+    fi
 
-        # GPU Info
-        gpu_info=$(lspci | grep -i vga | sed 's/.*: //')
-        printf "\e[36m%-18s\e[0m \e[32m%s\e[0m\n" "GPU Info:" "$gpu_info"
+    # Disk Info
+    echo -e "\e[36mDisk Info:\e[0m"
+    echo -e "\e[36mDrives:\e[0m"
+    printf "\e[36m%-10s %-30s %-10s %-15s\e[0m\n" "Device" "Model" "Size" "Used"
 
-        # Memory Info
-        total_mem=$(free -h | awk '/^Mem:/ {print $2}')
-        used_mem=$(free -h | awk '/^Mem:/ {print $3}')
-        printf "\e[36m%-18s\e[0m \e[32m%s / %s\e[0m\n" "Memory Info:" "$used_mem" "$total_mem"
-
-        # Disk Info
-        echo -e "\e[36mDisk Info:\e[0m"
-        echo -e "\e[36mDrives:\e[0m"
-        printf "\e[36m%-10s %-30s %-10s %-15s\e[0m\n" "Device" "Model" "Size" "Used"
-
-        lsblk -d -o NAME,MODEL,SIZE | grep -v 'loop' | while read -r name model size; do
-            used=$(df -h | grep "^/dev/${name}" | awk '{print $3}')
-            if [[ -z "$used" ]]; then
-                used="N/A"
+    lsblk_output=$(lsblk -d -o NAME,MODEL,SIZE | grep -v 'loop')
+    if [[ -n "$lsblk_output" ]]; then
+        echo "$lsblk_output" | while read -r name model size; do
+            df_output=$(df -h | grep "^/dev/${name}")
+            if [[ $? -eq 0 && -n "$df_output" ]]; then
+                used=$(echo "$df_output" | awk '{print $3}')
             else
-                # Check for different output formats
-                if [[ "$used" =~ ^([0-9]+)G$ ]]; then
-                    used=$((BASH_REMATCH[1] * 1024 ^ 3))
-                elif [[ "$used" =~ ^[0-9]+M$ ]]; then
-                    # Handle MB format
-                    used=$((BASH_REMATCH[1] * 1024 ^ 2))
-                fi
+                used="N/A"
             fi
             printf "\e[32m%-10s %-30s %-10s %-15s\e[0m\n" "$name" "${model:0:30}" "$size" "$used"
         done
+    else
+        echo "No matching drives found."
+    fi
 
-        # Network Info
+    # Network Info
+    ip_output=$(ip -br addr show | grep -v '^lo')
+    if [[ -n "$ip_output" ]]; then
         echo -e "\n\e[36mNetwork Info:\e[0m"
-        ip -br addr show | grep -v '^lo' | while read -r iface ip; do
+        echo "$ip_output" | while read -r iface ip; do
             printf "  \e[36m%-12s\e[0m \e[32m%s\e[0m\n" "$iface" "$ip"
         done
-
-        echo
-    }
-    local exit_status=0
-    exit_status=$? # Capture the exit status immediately
-    if [ $exit_status -ne 0 ]; then
-        handle_error "get_log_info" "$exit_status"
+    else
+        echo "Error retrieving network info."
     fi
+
+    echo
+    return 0
 }
 
-get_system_identification
+# Run system identification
+get_system_identification || handle_error "get_system_identification" "$?"
 
 perform_remote_update() {
     local update_steps=(
@@ -1328,6 +1352,14 @@ create_remote_script2() {
     cat <<'EOF' >"$pihole2_local"
 #!/bin/bash
 
+# Enable error trapping
+set -o errexit # Enable strict error checking
+set -o nounset # Exit if an unset variable is used
+set -o noglob  # Disable filename expansion
+set -eE
+set -o pipefail # trace ERR through pipes
+set -o errtrace # trace ERR through 'time command' and other functions
+
 # Initialize unset variables with defaults
 AG_backup="${AG_backup:-192.168.1.238}"
 BACKUP_DIR="${BACKUP_DIR:-/default/backup/dir}"
@@ -1342,6 +1374,54 @@ LOCAL_UPDATE_DEBUG="${LOCAL_UPDATE_DEBUG:-/default/local_update_debug.log}"
 BACKUP_LOG_DIR="${BACKUP_LOG_DIR:-/default/backup_log_dir}"
 BACKUP_LOG_FILE="${BACKUP_LOG_FILE:-/default/backup_log_file.log}"
 
+# Variables
+VERSION="1.2 (PiHole2)"
+LOG_FILE="/tmp/remote_update.log"
+BACKUP_LOG_DIR="$HOME/Desktop"
+BACKUP_LOG_FILE="$BACKUP_LOG_DIR/remote_update2.log"
+SUDO_ASKPASS_PATH="$HOME/sudo_askpass.sh"
+RUN_LOG="/tmp/remote_run_log.txt"
+ERROR_LOG="/tmp/remote_error_log.txt"
+REMOTE_SCRIPT_LOCAL2="/tmp/remote_update2.sh"
+# shellcheck disable=SC2269
+DRY_RUN="${DRY_RUN:-false}" # Pass DRY_RUN from the main script
+HostnameID="pihole2.home"
+
+# Export SUDO_ASKPASS
+export SUDO_ASKPASS="$SUDO_ASKPASS_PATH"
+
+# Function to log messages with color
+log_message() {
+    local color_code=""
+    local message=""
+
+    if [ "$#" -eq 1 ]; then
+        # Single parameter case - just the message
+        message="$1"
+    elif [ "$#" -eq 2 ]; then
+        # Two parameter case - color and message
+        case "$1" in
+        red) color_code="\e[31m" ;;
+        green) color_code="\e[32m" ;;
+        yellow) color_code="\e[33m" ;;
+        blue) color_code="\e[34m" ;;
+        magenta) color_code="\e[35m" ;;
+        cyan) color_code="\e[36m" ;;
+        white) color_code="\e[37m" ;;
+        gray) color_code="\e[90m" ;;
+        light_red) color_code="\e[91m" ;;
+        light_green) color_code="\e[92m" ;;
+        light_yellow) color_code="\e[93m" ;;
+        light_blue) color_code="\e[94m" ;;
+        light_magenta) color_code="\e[95m" ;;
+        light_cyan) color_code="\e[96m" ;;
+        *) color_code="" ;;
+        esac
+        message="$2"
+    fi
+
+    echo -e "${color_code}${message}\e[0m" | tee -a "$LOG_FILE"
+}
 
 # Function to restart the script
 restart_script_function() {
@@ -1445,45 +1525,6 @@ trap 'log_message yellow "Restarting script due to SIGHUP"; restart_script_funct
 trap 'log_message blue "Custom action for SIGUSR1"; custom_action' SIGUSR1
 trap 'cleanup_function' EXIT
 
-VERSION="1.2 (PiHole2)"
-LOG_FILE="/tmp/remote_update.log"
-BACKUP_LOG_DIR="$HOME/Desktop"
-BACKUP_LOG_FILE="$BACKUP_LOG_DIR/remote_update2.log"
-SUDO_ASKPASS_PATH="$HOME/sudo_askpass.sh"
-RUN_LOG="/tmp/remote_run_log.txt"
-ERROR_LOG="/tmp/remote_error_log.txt"
-REMOTE_SCRIPT_LOCAL2="/tmp/remote_update2.sh"
-# shellcheck disable=SC2269
-DRY_RUN="$DRY_RUN" # Pass DRY_RUN from the main script
-HostnameID="pihole2.home"
-
-# Function to log messages with color
-log_message() {
-    local color=$1
-    local message=$2
-    case $color in
-    red) color_code="\e[31m" ;;
-    green) color_code="\e[32m" ;;
-    yellow) color_code="\e[33m" ;;
-    blue) color_code="\e[34m" ;;
-    magenta) color_code="\e[35m" ;;
-    cyan) color_code="\e[36m" ;;
-    white) color_code="\e[37m" ;;
-    gray) color_code="\e[90m" ;;
-    light_red) color_code="\e[91m" ;;
-    light_green) color_code="\e[92m" ;;
-    light_yellow) color_code="\e[93m" ;;
-    light_blue) color_code="\e[94m" ;;
-    light_magenta) color_code="\e[95m" ;;
-    light_cyan) color_code="\e[96m" ;;
-    *) color_code="" ;;
-    esac
-    echo -e "${color_code}${message}\e[0m" | tee -a "$LOG_FILE"
-}
-
-# Export SUDO_ASKPASS
-export SUDO_ASKPASS="$SUDO_ASKPASS_PATH"
-
 # Initialize RUN_LOG and ERROR_LOG
 true >"$RUN_LOG"
 true >"$ERROR_LOG"
@@ -1570,66 +1611,71 @@ validate_remote_environment() {
 
 # Function to generate and display system info
 get_system_identification() {
-    {
-        echo -e "\n\e[36mSystem Identification:\e[0m"
-        echo
+    if ! echo -e "\n\e[36mSystem Identification:\e[0m"; then
+        return 1
+    fi
+    echo
 
-        # System Info
-        printf "\e[36m%-18s\e[0m \e[32m%s\e[0m\n" "Hostname:" "$(hostname)"
-        printf "\e[36m%-18s\e[0m \e[32m%s\e[0m\n" "Operating System:" "$(lsb_release -d | cut -f2)"
-        printf "\e[36m%-18s\e[0m \e[32m%s\e[0m\n" "Kernel Version:" "$(uname -r)"
+    # System Info
+    if ! printf "\e[36m%-18s\e[0m \e[32m%s\e[0m\n" "Hostname:" "$(hostname)"; then
+        return 1
+    fi
+    if ! printf "\e[36m%-18s\e[0m \e[32m%s\e[0m\n" "Operating System:" "$(lsb_release -d | cut -f2)"; then
+        return 1
+    fi
+    if ! printf "\e[36m%-18s\e[0m \e[32m%s\e[0m\n" "Kernel Version:" "$(uname -r)"; then
+        return 1
+    fi
 
-        # CPU Info
-        cpu_info=$(lscpu | grep 'Model name' | sed 's/Model name:[[:space:]]*//')
-        cpu_cores=$(lscpu | grep '^CPU(s):' | awk '{print $2}')
-        printf "\e[36m%-18s\e[0m \e[32m%s (%s cores)\e[0m\n" "CPU Info:" "$cpu_info" "$cpu_cores"
+    # CPU Info
+    cpu_info=$(lscpu | grep 'Model name' | sed 's/Model name:[[:space:]]*//')
+    cpu_cores=$(lscpu | grep '^CPU(s):' | awk '{print $2}')
+    if [[ -n "$cpu_info" && -n "$cpu_cores" ]]; then
+        if ! printf "\e[36m%-18s\e[0m \e[32m%s (%s cores)\e[0m\n" "CPU Info:" "$cpu_info" "$cpu_cores"; then
+            return 1
+        fi
+    else
+        echo "Error retrieving CPU info." >&2
+        return 1
+    fi
 
-        # GPU Info
-        gpu_info=$(lspci | grep -i vga | sed 's/.*: //')
-        printf "\e[36m%-18s\e[0m \e[32m%s\e[0m\n" "GPU Info:" "$gpu_info"
+    # Disk Info
+    echo -e "\e[36mDisk Info:\e[0m"
+    echo -e "\e[36mDrives:\e[0m"
+    printf "\e[36m%-10s %-30s %-10s %-15s\e[0m\n" "Device" "Model" "Size" "Used"
 
-        # Memory Info
-        total_mem=$(free -h | awk '/^Mem:/ {print $2}')
-        used_mem=$(free -h | awk '/^Mem:/ {print $3}')
-        printf "\e[36m%-18s\e[0m \e[32m%s / %s\e[0m\n" "Memory Info:" "$used_mem" "$total_mem"
-
-        # Disk Info
-        echo -e "\e[36mDisk Info:\e[0m"
-        echo -e "\e[36mDrives:\e[0m"
-        printf "\e[36m%-10s %-30s %-10s %-15s\e[0m\n" "Device" "Model" "Size" "Used"
-
-        lsblk -d -o NAME,MODEL,SIZE | grep -v 'loop' | while read -r name model size; do
-            used=$(df -h | grep "^/dev/${name}" | awk '{print $3}')
-            if [[ -z "$used" ]]; then
-                used="N/A"
+    lsblk_output=$(lsblk -d -o NAME,MODEL,SIZE | grep -v 'loop')
+    if [[ -n "$lsblk_output" ]]; then
+        echo "$lsblk_output" | while read -r name model size; do
+            df_output=$(df -h | grep "^/dev/${name}")
+            if [[ $? -eq 0 && -n "$df_output" ]]; then
+                used=$(echo "$df_output" | awk '{print $3}')
             else
-                # Check for different output formats
-                if [[ "$used" =~ ^([0-9]+)G$ ]]; then
-                    used=$((BASH_REMATCH[1] * 1024 ^ 3))
-                elif [[ "$used" =~ ^[0-9]+M$ ]]; then
-                    # Handle MB format
-                    used=$((BASH_REMATCH[1] * 1024 ^ 2))
-                fi
+                used="N/A"
             fi
             printf "\e[32m%-10s %-30s %-10s %-15s\e[0m\n" "$name" "${model:0:30}" "$size" "$used"
         done
-
-        # Network Info
-        echo -e "\n\e[36mNetwork Info:\e[0m"
-        ip -br addr show | grep -v '^lo' | while read -r iface ip; do
-            printf "  \e[36m%-12s\e[0m \e[32m%s\e[0m\n" "$iface" "$ip"
-        done
-
-        echo
-    }
-    local exit_status=0
-    exit_status=$? # Capture the exit status immediately
-    if [ $exit_status -ne 0 ]; then
-        handle_error "get_log_info" "$exit_status"
+    else
+        echo "No matching drives found."
     fi
+
+    # Network Info
+    ip_output=$(ip -br addr show | grep -v '^lo')
+    if [[ -n "$ip_output" ]]; then
+        echo -e "\n\e[36mNetwork Info:\e[0m"
+        echo "$ip_output" | while read -r iface ip; do
+            printf "  \e[36m%-12s\e[0m \e[32m%s\e[0m\n" "$iface" "$ip"
+        done
+    else
+        echo "Error retrieving network info."
+    fi
+
+    echo
+    return 0
 }
 
-get_system_identification
+# Run system identification
+get_system_identification || handle_error "get_system_identification" "$?"
 
 perform_remote_update() {
     local update_steps=(
@@ -1825,6 +1871,14 @@ create_remote_script() {
     cat <<'EOF' >"$pihole_local"
 #!/bin/bash
 
+# Enable error trapping
+set -o errexit # Enable strict error checking
+set -o nounset # Exit if an unset variable is used
+set -o noglob  # Disable filename expansion
+set -eE
+set -o pipefail # trace ERR through pipes
+set -o errtrace # trace ERR through 'time command' and other functions
+
 # Initialize unset variables with defaults
 AG_backup="${AG_backup:-192.168.1.238}"
 BACKUP_DIR="${BACKUP_DIR:-/default/backup/dir}"
@@ -1839,6 +1893,54 @@ LOCAL_UPDATE_DEBUG="${LOCAL_UPDATE_DEBUG:-/default/local_update_debug.log}"
 BACKUP_LOG_DIR="${BACKUP_LOG_DIR:-/default/backup_log_dir}"
 BACKUP_LOG_FILE="${BACKUP_LOG_FILE:-/default/backup_log_file.log}"
 
+# Variables
+VERSION="1.2 (pihole.main)"
+LOG_FILE="/tmp/remote_update.log"
+SUMMARY_LOG="/tmp/remote_update_summary.log"
+BACKUP_LOG_DIR="$HOME/Desktop"
+BACKUP_LOG_FILE="$BACKUP_LOG_DIR/remote_update.log"
+SUDO_ASKPASS_PATH="$HOME/sudo_askpass.sh"
+RUN_LOG="/tmp/remote_run_log.txt"
+ERROR_LOG="/tmp/remote_error_log.txt"
+
+# shellcheck disable=SC2269
+DRY_RUN="${DRY_RUN:-false}" # Pass DRY_RUN from the main script
+
+# Export SUDO_ASKPASS
+export SUDO_ASKPASS="$SUDO_ASKPASS_PATH"
+
+# Function to log messages with color
+log_message() {
+    local color_code=""
+    local message=""
+
+    if [ "$#" -eq 1 ]; then
+        # Single parameter case - just the message
+        message="$1"
+    elif [ "$#" -eq 2 ]; then
+        # Two parameter case - color and message
+        case "$1" in
+        red) color_code="\e[31m" ;;
+        green) color_code="\e[32m" ;;
+        yellow) color_code="\e[33m" ;;
+        blue) color_code="\e[34m" ;;
+        magenta) color_code="\e[35m" ;;
+        cyan) color_code="\e[36m" ;;
+        white) color_code="\e[37m" ;;
+        gray) color_code="\e[90m" ;;
+        light_red) color_code="\e[91m" ;;
+        light_green) color_code="\e[92m" ;;
+        light_yellow) color_code="\e[93m" ;;
+        light_blue) color_code="\e[94m" ;;
+        light_magenta) color_code="\e[95m" ;;
+        light_cyan) color_code="\e[96m" ;;
+        *) color_code="" ;;
+        esac
+        message="$2"
+    fi
+
+    echo -e "${color_code}${message}\e[0m" | tee -a "$LOG_FILE"
+}
 
 # Function to restart the script
 restart_script_function() {
@@ -1942,44 +2044,6 @@ trap 'log_message yellow "Restarting script due to SIGHUP"; restart_script_funct
 trap 'log_message blue "Custom action for SIGUSR1"; custom_action' SIGUSR1
 trap 'cleanup_function' EXIT
 
-VERSION="1.2 (pihole.main)"
-LOG_FILE="/tmp/remote_update.log"
-SUMMARY_LOG="/tmp/remote_update_summary.log"
-BACKUP_LOG_DIR="$HOME/Desktop"
-BACKUP_LOG_FILE="$BACKUP_LOG_DIR/remote_update.log"
-SUDO_ASKPASS_PATH="$HOME/sudo_askpass.sh"
-RUN_LOG="/tmp/remote_run_log.txt"
-ERROR_LOG="/tmp/remote_error_log.txt"
-# shellcheck disable=SC2269
-DRY_RUN="$DRY_RUN" # Pass DRY_RUN from the main script
-
-# Function to log messages with color
-log_message() {
-    local color=$1
-    local message=$2
-    case $color in
-    red) color_code="\e[31m" ;;
-    green) color_code="\e[32m" ;;
-    yellow) color_code="\e[33m" ;;
-    blue) color_code="\e[34m" ;;
-    magenta) color_code="\e[35m" ;;
-    cyan) color_code="\e[36m" ;;
-    white) color_code="\e[37m" ;;
-    gray) color_code="\e[90m" ;;
-    light_red) color_code="\e[91m" ;;
-    light_green) color_code="\e[92m" ;;
-    light_yellow) color_code="\e[93m" ;;
-    light_blue) color_code="\e[94m" ;;
-    light_magenta) color_code="\e[95m" ;;
-    light_cyan) color_code="\e[96m" ;;
-    *) color_code="" ;;
-    esac
-    echo -e "${color_code}${message}\e[0m" | tee -a "$LOG_FILE"
-}
-
-# Export SUDO_ASKPASS
-export SUDO_ASKPASS="$SUDO_ASKPASS_PATH"
-
 # Initialize RUN_LOG and ERROR_LOG
 true >"$RUN_LOG"
 true >"$ERROR_LOG"
@@ -2065,66 +2129,71 @@ validate_remote_environment() {
 
 # Function to generate and display system info
 get_system_identification() {
-    {
-        echo -e "\n\e[36mSystem Identification:\e[0m"
-        echo
+    if ! echo -e "\n\e[36mSystem Identification:\e[0m"; then
+        return 1
+    fi
+    echo
 
-        # System Info
-        printf "\e[36m%-18s\e[0m \e[32m%s\e[0m\n" "Hostname:" "$(hostname)"
-        printf "\e[36m%-18s\e[0m \e[32m%s\e[0m\n" "Operating System:" "$(lsb_release -d | cut -f2)"
-        printf "\e[36m%-18s\e[0m \e[32m%s\e[0m\n" "Kernel Version:" "$(uname -r)"
+    # System Info
+    if ! printf "\e[36m%-18s\e[0m \e[32m%s\e[0m\n" "Hostname:" "$(hostname)"; then
+        return 1
+    fi
+    if ! printf "\e[36m%-18s\e[0m \e[32m%s\e[0m\n" "Operating System:" "$(lsb_release -d | cut -f2)"; then
+        return 1
+    fi
+    if ! printf "\e[36m%-18s\e[0m \e[32m%s\e[0m\n" "Kernel Version:" "$(uname -r)"; then
+        return 1
+    fi
 
-        # CPU Info
-        cpu_info=$(lscpu | grep 'Model name' | sed 's/Model name:[[:space:]]*//')
-        cpu_cores=$(lscpu | grep '^CPU(s):' | awk '{print $2}')
-        printf "\e[36m%-18s\e[0m \e[32m%s (%s cores)\e[0m\n" "CPU Info:" "$cpu_info" "$cpu_cores"
+    # CPU Info
+    cpu_info=$(lscpu | grep 'Model name' | sed 's/Model name:[[:space:]]*//')
+    cpu_cores=$(lscpu | grep '^CPU(s):' | awk '{print $2}')
+    if [[ -n "$cpu_info" && -n "$cpu_cores" ]]; then
+        if ! printf "\e[36m%-18s\e[0m \e[32m%s (%s cores)\e[0m\n" "CPU Info:" "$cpu_info" "$cpu_cores"; then
+            return 1
+        fi
+    else
+        echo "Error retrieving CPU info." >&2
+        return 1
+    fi
 
-        # GPU Info
-        gpu_info=$(lspci | grep -i vga | sed 's/.*: //')
-        printf "\e[36m%-18s\e[0m \e[32m%s\e[0m\n" "GPU Info:" "$gpu_info"
+    # Disk Info
+    echo -e "\e[36mDisk Info:\e[0m"
+    echo -e "\e[36mDrives:\e[0m"
+    printf "\e[36m%-10s %-30s %-10s %-15s\e[0m\n" "Device" "Model" "Size" "Used"
 
-        # Memory Info
-        total_mem=$(free -h | awk '/^Mem:/ {print $2}')
-        used_mem=$(free -h | awk '/^Mem:/ {print $3}')
-        printf "\e[36m%-18s\e[0m \e[32m%s / %s\e[0m\n" "Memory Info:" "$used_mem" "$total_mem"
-
-        # Disk Info
-        echo -e "\e[36mDisk Info:\e[0m"
-        echo -e "\e[36mDrives:\e[0m"
-        printf "\e[36m%-10s %-30s %-10s %-15s\e[0m\n" "Device" "Model" "Size" "Used"
-
-        lsblk -d -o NAME,MODEL,SIZE | grep -v 'loop' | while read -r name model size; do
-            used=$(df -h | grep "^/dev/${name}" | awk '{print $3}')
-            if [[ -z "$used" ]]; then
-                used="N/A"
+    lsblk_output=$(lsblk -d -o NAME,MODEL,SIZE | grep -v 'loop')
+    if [[ -n "$lsblk_output" ]]; then
+        echo "$lsblk_output" | while read -r name model size; do
+            df_output=$(df -h | grep "^/dev/${name}")
+            if [[ $? -eq 0 && -n "$df_output" ]]; then
+                used=$(echo "$df_output" | awk '{print $3}')
             else
-                # Check for different output formats
-                if [[ "$used" =~ ^([0-9]+)G$ ]]; then
-                    used=$((BASH_REMATCH[1] * 1024 ^ 3))
-                elif [[ "$used" =~ ^[0-9]+M$ ]]; then
-                    # Handle MB format
-                    used=$((BASH_REMATCH[1] * 1024 ^ 2))
-                fi
+                used="N/A"
             fi
             printf "\e[32m%-10s %-30s %-10s %-15s\e[0m\n" "$name" "${model:0:30}" "$size" "$used"
         done
-
-        # Network Info
-        echo -e "\n\e[36mNetwork Info:\e[0m"
-        ip -br addr show | grep -v '^lo' | while read -r iface ip; do
-            printf "  \e[36m%-12s\e[0m \e[32m%s\e[0m\n" "$iface" "$ip"
-        done
-
-        echo
-    }
-    local exit_status=0
-    exit_status=$? # Capture the exit status immediately
-    if [ $exit_status -ne 0 ]; then
-        handle_error "get_log_info" "$exit_status"
+    else
+        echo "No matching drives found."
     fi
+
+    # Network Info
+    ip_output=$(ip -br addr show | grep -v '^lo')
+    if [[ -n "$ip_output" ]]; then
+        echo -e "\n\e[36mNetwork Info:\e[0m"
+        echo "$ip_output" | while read -r iface ip; do
+            printf "  \e[36m%-12s\e[0m \e[32m%s\e[0m\n" "$iface" "$ip"
+        done
+    else
+        echo "Error retrieving network info."
+    fi
+
+    echo
+    return 0
 }
 
-get_system_identification
+# Run system identification
+get_system_identification || handle_error "get_system_identification" "$?"
 
 perform_remote_update() {
     local update_steps=(
