@@ -158,7 +158,7 @@ trap 'log_message blue "Custom action for SIGUSR1"; custom_action' SIGUSR1
 trap 'cleanup_function' EXIT
 
 # Variables
-VERSION="1.3.000.005"
+VERSION="1.3.000.006"
 DRY_RUN=false
 
 # VConstants
@@ -626,8 +626,23 @@ validate_variablesv2() {
         exit 1
     fi
 
+    if [[ ! -d "$CACHE_DIR" ]]; then
+        log_message red "Error: CACHE_DIR does not exist"
+        exit 1
+    fi
+
     if [[ ! -f "$SUDO_ASKPASS_PATH" ]]; then
         log_message red "Error: SUDO_ASKPASS_PATH file does not exist"
+        exit 1
+    fi
+
+    if [[ ! -f "$temp_error_counts" ]]; then
+        log_message red "Error: temp_error_counts file does not exist"
+        exit 1
+    fi
+
+    if [[ ! -f "$LAST_RUN_FILE" ]]; then
+        log_message red "Error: LAST_RUN_FILE file does not exist"
         exit 1
     fi
 }
@@ -724,6 +739,7 @@ verify_file_path() {
 verify_and_create_directory "$BACKUP_DIR"
 verify_and_create_directory "$BACKUP_DIR2"
 verify_and_create_directory "$BACKUP_LOG_DIR"
+verify_and_create_directory "$CACHE_DIR"
 verify_file_path "$CHANGELOG_FILE" "create"
 verify_file_path "$LOG_FILE" "create"
 verify_file_path "$pihole_log" "create"
@@ -739,7 +755,8 @@ verify_file_path "$pihole_local" "create"
 verify_file_path "$pihole2_local" "create"
 verify_file_path "$AG_Backup_local" "create"
 verify_file_path "$pihole2_log" "create"
-verify_file_path "$AG_Backup_log" "create"
+verify_file_path "$temp_error_counts" "create"
+verify_file_path "$LAST_RUN_FILE" "create"
 
 # shellcheck disable=SC2086
 # shellcheck disable=SC2029
