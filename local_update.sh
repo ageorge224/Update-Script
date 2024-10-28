@@ -587,7 +587,7 @@ validate_variablesv2() {
     fi
 
     if [[ -z "$pihole" ]]; then
-        log_message red "Error: pihole is not set"
+        log_message red "Error: pihole2 is not set"
         exit 1
     fi
 
@@ -597,7 +597,7 @@ validate_variablesv2() {
     fi
 
     if [[ -z "$AG_backup" ]]; then
-        log_message red "Error: pihole is not set"
+        log_message red "Error: AG_backup is not set"
         exit 1
     fi
 
@@ -607,12 +607,12 @@ validate_variablesv2() {
     fi
 
     if ! validate_ip "$pihole2"; then
-        log_message red "Error: Invalid IP address for pihole"
+        log_message red "Error: Invalid IP address for pihole2"
         exit 1
     fi
 
     if ! validate_ip "$AG_backup"; then
-        log_message red "Error: Invalid IP address for pihole"
+        log_message red "Error: Invalid IP address for AG_backup"
         exit 1
     fi
 
