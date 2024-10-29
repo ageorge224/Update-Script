@@ -3077,9 +3077,6 @@ update_changelog() {
 # Call the function with the existing VERSION variable
 update_changelog "$CHANGELOG_FILE" "$SCRIPT_NAME" "$VERSION"
 
-# Example usage (assuming log_functions.sh defines functions for logging)
-log_message "This script is located in $(dirname "$0")"
-
 # Validation and setup section
 setup_and_validate() {
     # Create cache directory if it doesn't exist
