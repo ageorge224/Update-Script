@@ -227,9 +227,6 @@ log_message() {
     echo -e "${color_code}${message}\e[0m" | tee -a "$LOG_FILE"
 }
 
-# Example usage (assuming log_functions.sh defines functions for logging)
-log_message "This script is located in $(dirname "$0")"
-
 # Function to check dry-run mode and return a status code
 check_dry_run_mode() {
     if $DRY_RUN; then
@@ -1328,12 +1325,12 @@ rsync_with_error_handling() {
     # Read captured output (assuming UTF-8 encoding)
     local error_message=$(cat /tmp/rsync_output | iconv -f UTF-8)
     echo "rsync command failed: $error_message"
-    return 1  # Indicate error
+    return 1  
   fi
 
   # Success message
   echo "rsync command successful: $source -> $destination"
-  return 0  # Indicate success
+  return 0 
 }
 
 source_path="/tmp/remote_update.log"
