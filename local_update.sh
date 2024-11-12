@@ -158,7 +158,7 @@ trap 'log_message blue "Custom action for SIGUSR1"; custom_action' SIGUSR1
 trap 'cleanup_function' EXIT
 
 # Variables
-VERSION="1.3.000.006"
+VERSION="1.3.000.008"
 DRY_RUN=false
 
 # VConstants
@@ -1324,22 +1324,26 @@ rsync_with_error_handling() {
   if [[ $? -ne 0 ]]; then
     # Read captured output (assuming UTF-8 encoding)
     local error_message=$(cat /tmp/rsync_output | iconv -f UTF-8)
-    echo "rsync command failed: $error_message"
-    return 1  
+    log_message red "rsync command failed: $error_message"
+    return 1  # Indicate error
   fi
 
   # Success message
-  echo "rsync command successful: $source -> $destination"
-  return 0 
+  echo
+  log_message green "Rsync Successful: $source -> $destination"
+  echo
+  return 0  # Indicate success
 }
 
 source_path="/tmp/remote_update.log"
-destination_path="/home/ageorge/Desktop/remote_update3.log"
+destination_path="/home/ageorge/Desktop/remote_update.log"
 
 rsync_with_error_handling "$source_path" "$destination_path"
 
 if [[ $? -eq 0 ]]; then
-  echo "Files synced successfully."
+echo
+  log_message blue "Files synced successfully."
+  echo
 else
   echo "Sync failed. Please check the output for details."
 fi
@@ -1845,22 +1849,26 @@ rsync_with_error_handling() {
   if [[ $? -ne 0 ]]; then
     # Read captured output (assuming UTF-8 encoding)
     local error_message=$(cat /tmp/rsync_output | iconv -f UTF-8)
-    echo "rsync command failed: $error_message"
+    log_message red "rsync command failed: $error_message"
     return 1  # Indicate error
   fi
 
   # Success message
-  echo "rsync command successful: $source -> $destination"
+  echo
+  log_message green "Rsync Successful: $source -> $destination"
+  echo
   return 0  # Indicate success
 }
 
 source_path="/tmp/remote_update.log"
-destination_path="/home/ageorge/Desktop/remote_update2.log"
+destination_path="/home/ageorge/Desktop/remote_update.log"
 
 rsync_with_error_handling "$source_path" "$destination_path"
 
 if [[ $? -eq 0 ]]; then
-  echo "Files synced successfully."
+echo
+  log_message blue "Files synced successfully."
+  echo
 else
   echo "Sync failed. Please check the output for details."
 fi
@@ -2368,12 +2376,14 @@ rsync_with_error_handling() {
   if [[ $? -ne 0 ]]; then
     # Read captured output (assuming UTF-8 encoding)
     local error_message=$(cat /tmp/rsync_output | iconv -f UTF-8)
-    echo "rsync command failed: $error_message"
+    log_message red "rsync command failed: $error_message"
     return 1  # Indicate error
   fi
 
   # Success message
-  echo "rsync command successful: $source -> $destination"
+  echo
+  log_message green "Rsync Successful: $source -> $destination"
+  echo
   return 0  # Indicate success
 }
 
@@ -2383,7 +2393,9 @@ destination_path="/home/ageorge/Desktop/remote_update.log"
 rsync_with_error_handling "$source_path" "$destination_path"
 
 if [[ $? -eq 0 ]]; then
-  echo "Files synced successfully."
+echo
+  log_message blue "Files synced successfully."
+  echo
 else
   echo "Sync failed. Please check the output for details."
 fi
