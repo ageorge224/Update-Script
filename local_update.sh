@@ -158,7 +158,7 @@ trap 'log_message blue "Custom action for SIGUSR1"; custom_action' SIGUSR1
 trap 'cleanup_function' EXIT
 
 # Variables
-VERSION="1.3.000.008"
+VERSION="1.3.000.010"
 DRY_RUN=false
 
 # VConstants
@@ -169,7 +169,7 @@ pihole2="192.168.1.145"
 AG_backup="192.168.1.238"
 BACKUP_LOG_DIR="/home/ageorge/.local_update_logs"
 BACKUP_DIR="/home/ageorge/Documents/Backups"
-BACKUP_DIR2="/media/ageorge/Nvme500Data/Update Backups"
+BACKUP_DIR2="/mnt/Nvme500Data/Update Backups"
 REMOTE_LOG="/home/ageorge/Desktop/remote_update.log"
 CHANGELOG_FILE="$BACKUP_DIR/changelog.txt"
 LOG_FILE="/tmp/local_update.log"
